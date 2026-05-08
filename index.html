@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>To-Do</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="To-Do">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  :root {
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --panel-2: #f3f4f6;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #2563eb;
+    --danger: #dc2626;
+    --done: #9ca3af;
+    --hover: rgba(0,0,0,0.04);
+    --badge-bg: rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+  .page-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+  }
+  h1 .count {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+  .link-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    border-radius: 4px;
+  }
+  .link-btn:hover { color: var(--text); border-color: transparent; }
+  .auth { margin-bottom: 24px; }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 6px;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+  form#addForm {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  input[type="text"], textarea, select {
+    font: inherit;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 6px;
+  }
+  input[type="text"]:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  form#addForm input[type="text"] { flex: 1; }
+
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #toolbar #search {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 6px;
+  }
+  #toolbar #search:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  #toolbar .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #toolbar input[type="checkbox"] { accent-color: var(--accent); }
+
+  #list { display: block; }
+
+  .group { margin-bottom: 22px; }
+  .group:last-child { margin-bottom: 0; }
+  .group h2 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 8px;
+    padding: 0 4px;
+  }
+  .group ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .group li {
+    border-bottom: 1px solid var(--border);
+  }
+  .group li:last-child { border-bottom: none; }
+
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+  }
+  .task-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .task-row .star {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+    font-size: 16px;
+    color: var(--muted);
+    flex-shrink: 0;
+    border-radius: 4px;
+  }
+  .task-row .star:hover { color: var(--text); background: var(--hover); }
+  .task-row .star.on { color: #f59e0b; }
+  .task-row .star.on:hover { color: #d97706; }
+  .task-row .text {
+    flex: 1;
+    word-break: break-word;
+    cursor: text;
+    padding: 2px 4px;
+    border-radius: 4px;
+    min-width: 0;
+  }
+  .task-row .text:hover { background: var(--hover); }
+  li.done .task-row .text {
+    text-decoration: line-through;
+    color: var(--done);
+  }
+  .task-row .text-edit {
+    flex: 1;
+    padding: 2px 6px;
+    font-size: inherit;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--text);
+    min-width: 0;
+  }
+  .task-row .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--badge-bg);
+    color: var(--muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent;
+  }
+  .task-row .category-badge { font-weight: 500; }
+  .task-row .date-badge.overdue {
+    background: rgba(220,38,38,0.12);
+    color: var(--danger);
+  }
+  li.overdue:not(.done) .task-row .text {
+    color: var(--danger);
+  }
+  .task-row .icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+    border-radius: 4px;
+  }
+  .task-row .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .task-row .delete:hover { color: var(--danger); }
+  .task-row .chevron { font-size: 12px; }
+  li.expanded .task-row .chevron { color: var(--accent); }
+
+  .expand-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px 16px 16px 38px;
+    background: var(--panel-2);
+    border-top: 1px solid var(--border);
+  }
+  .quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .quick-chips button {
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .quick-chips button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .quick-chips button.clear { color: var(--muted); }
+  .quick-chips button.clear:hover { color: var(--danger); border-color: var(--danger); }
+  .expand-panel .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .expand-panel .field.full { grid-column: 1 / -1; }
+  .expand-panel .field textarea {
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+    resize: vertical;
+    min-height: 60px;
+  }
+  .expand-panel .field select,
+  .expand-panel .field input[type="text"],
+  .expand-panel .field input[type="date"] {
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+    padding: 6px 8px;
+  }
+  .expand-panel .field .date-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .expand-panel .field .date-wrap input[type="date"] {
+    flex: 1;
+    min-width: 0;
+  }
+  .expand-panel .field .date-clear {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 4px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .expand-panel .field .date-clear:hover { color: var(--text); }
+  @media (max-width: 480px) {
+    .expand-panel { grid-template-columns: 1fr; padding-left: 14px; }
+  }
+
+  #status {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 1.5em;
+  }
+  #status.error { color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .empty-state .hint { font-size: 12px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="page-header">
+    <h1>To-Do <span id="taskCount" class="count" hidden></span></h1>
+    <button id="signout" class="link-btn" hidden>Sign out</button>
+  </header>
+  <div id="authBox" class="auth">
+    <button id="signin" class="primary" disabled>Sign in with Google</button>
+  </div>
+  <form id="addForm" hidden>
+    <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
+    <button type="submit" class="primary">Add</button>
+  </form>
+  <div id="toolbar" hidden>
+    <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
+    <label class="toggle"><input type="checkbox" id="hideCompleted"> Hide completed</label>
+  </div>
+  <div id="list"></div>
+  <p id="status">Loading Google libraries...</p>
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+<script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
+
+<script>
+  // ─── Configuration ─────────────────────────────────────────
+  const CLIENT_ID = '246998659570-laagb885kb85q2ffkkmmnkucgu53cbad.apps.googleusercontent.com';
+  const SHEET_ID  = '1gH6KL-2FisBqP1VVH6Vg_M47QlRNWcdyq6I2qoM63jM';
+  const SHEET_NAME = 'tasks';
+  // ───────────────────────────────────────────────────────────
+
+  const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+  const DISCOVERY = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+  const TOKEN_KEY = 'todoApp.token';
+
+  // Display groups, computed dynamically from a task's ISO date relative to today.
+  const GROUPS = [
+    { value: 'overdue',    label: 'Overdue' },
+    { value: 'today',      label: 'Today' },
+    { value: 'tomorrow',   label: 'Tomorrow' },
+    { value: 'this_week',  label: 'This Week' },
+    { value: 'next_week',  label: 'Next Week' },
+    { value: 'this_month', label: 'This Month' },
+    { value: 'next_month', label: 'Next Month' },
+    { value: 'this_year',  label: 'This Year' },
+    { value: 'later',      label: 'Later' },
+    { value: 'no_date',    label: 'No Date' },
+  ];
+  const SEED_CATEGORIES = ['Work', 'Personal', 'Errands', 'Health', 'Home'];
+  const FIELD_COL = { text: 'B', category: 'D', due: 'E', notes: 'F', starred: 'G' };
+  const ADD_NEW = '__add_new__';
+
+  // ─── State ─────────────────────────────────────────────────
+  let tokenClient = null;
+  let gapiReady = false;
+  let gisReady = false;
+  let sheetGid = null;
+  let todos = [];
+  let expandedId = null;
+  let editingId = null;
+  let hideCompleted = false;
+  let searchQuery = '';
+
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(msg, isError = false) {
+    const el = $('status');
+    el.textContent = msg;
+    el.classList.toggle('error', isError);
+  }
+
+  function extractError(e) {
+    if (!e) return 'unknown';
+    if (e.result && e.result.error) return e.result.error.message;
+    return e.message || String(e);
+  }
+
+  // ─── Token persistence ─────────────────────────────────────
+  // Access tokens are short-lived (~1 hour). We persist to localStorage so
+  // page refreshes within that window don't require re-auth. After expiry,
+  // user clicks sign-in once and we get a fresh token.
+  function saveToken(tokenResp) {
+    if (!tokenResp || !tokenResp.access_token) return;
+    const expiresIn = Number(tokenResp.expires_in) || 3600;
+    const data = {
+      access_token: tokenResp.access_token,
+      expires_at: Date.now() + Math.max(0, (expiresIn - 60)) * 1000, // 60s safety buffer
+    };
+    try { localStorage.setItem(TOKEN_KEY, JSON.stringify(data)); } catch (_) {}
+  }
+
+  function loadStoredToken() {
+    try {
+      const raw = localStorage.getItem(TOKEN_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data.access_token || Date.now() >= data.expires_at) {
+        localStorage.removeItem(TOKEN_KEY);
+        return null;
+      }
+      return data;
+    } catch (_) { return null; }
+  }
+
+  function clearStoredToken() {
+    try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+  }
+
+  // ─── Boot ──────────────────────────────────────────────────
+  function gapiLoaded() {
+    gapi.load('client', async () => {
+      try {
+        await gapi.client.init({ discoveryDocs: [DISCOVERY] });
+        gapiReady = true;
+        maybeReady();
+      } catch (e) {
+        setStatus('Failed to init Google API client: ' + extractError(e), true);
+      }
+    });
+  }
+
+  function gisLoaded() {
+    try {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: () => {},
+      });
+      gisReady = true;
+      maybeReady();
+    } catch (e) {
+      setStatus('Failed to init Google Identity Services: ' + extractError(e), true);
+    }
+  }
+
+  async function maybeReady() {
+    if (!(gapiReady && gisReady)) return;
+    $('signin').disabled = false;
+    // If we have a non-expired token from a previous sign-in, use it directly —
+    // no GIS round-trip, no popup flicker.
+    const stored = loadStoredToken();
+    if (stored) {
+      gapi.client.setToken({ access_token: stored.access_token });
+      await onSignedIn();
+      return;
+    }
+    setStatus('Sign in to load your tasks.');
+  }
+
+  // ─── Auth ──────────────────────────────────────────────────
+  $('signin').addEventListener('click', () => {
+    if (CLIENT_ID.startsWith('YOUR_') || SHEET_ID.startsWith('YOUR_')) {
+      setStatus('Please set CLIENT_ID and SHEET_ID at the top of index.html.', true);
+      return;
+    }
+    tokenClient.callback = async (resp) => {
+      if (resp.error) {
+        setStatus('Sign-in failed: ' + resp.error, true);
+        return;
+      }
+      saveToken(resp);
+      await onSignedIn();
+    };
+    // Empty prompt: Google shows consent only if not yet granted; otherwise
+    // it's a near-silent token issuance (sometimes a brief account-picker flash).
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+
+  $('signout').addEventListener('click', () => {
+    const token = gapi.client.getToken();
+    if (token && token.access_token) {
+      google.accounts.oauth2.revoke(token.access_token, () => {});
+    }
+    gapi.client.setToken(null);
+    clearStoredToken();
+    todos = [];
+    expandedId = null;
+    editingId = null;
+    render();
+    $('authBox').hidden = false;
+    $('signin').hidden = false;
+    $('signout').hidden = true;
+    $('addForm').hidden = true;
+    $('toolbar').hidden = true;
+    setStatus('Signed out.');
+  });
+
+  async function onSignedIn() {
+    $('authBox').hidden = true;
+    $('signin').hidden = true;
+    $('signout').hidden = false;
+    $('addForm').hidden = false;
+    $('toolbar').hidden = false;
+    try {
+      await resolveSheetGid();
+      await loadTodos();
+    } catch (e) {
+      // If our stored token was rejected (revoked, expired despite our buffer,
+      // scope mismatch), drop it and bounce back to the sign-in button.
+      if (e && (e.status === 401 || e.status === 403)) {
+        clearStoredToken();
+        gapi.client.setToken(null);
+        $('authBox').hidden = false;
+        $('signin').hidden = false;
+        $('signout').hidden = true;
+        $('addForm').hidden = true;
+        $('toolbar').hidden = true;
+        setStatus('Session expired. Please sign in again.');
+        return;
+      }
+      setStatus('Error: ' + extractError(e), true);
+    }
+  }
+
+  // ─── Sheets API ────────────────────────────────────────────
+  async function resolveSheetGid() {
+    if (sheetGid !== null) return;
+    const resp = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    const sheet = resp.result.sheets.find(s => s.properties.title === SHEET_NAME);
+    if (!sheet) throw new Error(`Sheet tab "${SHEET_NAME}" not found.`);
+    sheetGid = sheet.properties.sheetId;
+  }
+
+  async function loadTodos() {
+    setStatus('Loading...');
+    const resp = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A2:G`,
+    });
+    const rows = resp.result.values || [];
+    todos = rows.map((r, i) => ({
+      id: r[0] || '',
+      text: r[1] || '',
+      done: String(r[2] || '').toUpperCase() === 'TRUE',
+      category: r[3] || '',
+      due: migrateLegacyBucket(r[4] || ''),
+      notes: r[5] || '',
+      starred: String(r[6] || '').toUpperCase() === 'TRUE',
+      row: i + 2,
+    }));
+    render();
+    setStatus(`${todos.length} task${todos.length === 1 ? '' : 's'}`);
+  }
+
+  async function addTodo(text) {
+    const id = String(Date.now());
+    setStatus('Adding...');
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A:G`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: [[id, text, 'FALSE', '', '', '', 'FALSE']] },
+    });
+    await loadTodos();
+  }
+
+  async function toggleTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+    const newDone = !todo.done;
+    todo.done = newDone;
+    render();
+    try {
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAME}!C${todo.row}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[newDone ? 'TRUE' : 'FALSE']] },
+      });
+    } catch (e) {
+      todo.done = !newDone;
+      render();
+      setStatus('Failed to update: ' + extractError(e), true);
+    }
+  }
+
+  async function updateField(id, field, value) {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+    const col = FIELD_COL[field];
+    if (!col) return;
+    const prev = todo[field];
+    if (prev === value) return;
+    todo[field] = value;
+    render();
+    const cellValue = typeof value === 'boolean' ? (value ? 'TRUE' : 'FALSE') : value;
+    try {
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAME}!${col}${todo.row}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[cellValue]] },
+      });
+    } catch (e) {
+      todo[field] = prev;
+      render();
+      setStatus('Failed to update: ' + extractError(e), true);
+    }
+  }
+
+  async function deleteTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (!todo) return;
+    setStatus('Deleting...');
+    if (expandedId === id) expandedId = null;
+    if (editingId === id) editingId = null;
+    await gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      resource: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId: sheetGid,
+              dimension: 'ROWS',
+              startIndex: todo.row - 1,
+              endIndex: todo.row,
+            },
+          },
+        }],
+      },
+    });
+    await loadTodos();
+  }
+
+  // ─── Date helpers ──────────────────────────────────────────
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function isoDate(d) {
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function parseISODate(s) {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d); // local midnight
+  }
+  function addDays(d, n) {
+    const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    r.setDate(r.getDate() + n);
+    return r;
+  }
+  function startOfToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  // Convert v2 bucket strings to ISO dates in-memory. Editing a task writes
+  // the new ISO value back to the sheet, so legacy buckets gradually disappear.
+  function migrateLegacyBucket(s) {
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const today = startOfToday();
+    const dow = today.getDay(); // 0 = Sunday
+    const daysToSunday = ((7 - dow) % 7) || 7; // upcoming Sunday (1..7)
+    switch (s) {
+      case 'today':      return isoDate(today);
+      case 'tomorrow':   return isoDate(addDays(today, 1));
+      case 'this_week':  return isoDate(addDays(today, daysToSunday));
+      case 'next_week':  return isoDate(addDays(today, daysToSunday + 7));
+      case 'this_month': return isoDate(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+      case 'next_month': return isoDate(new Date(today.getFullYear(), today.getMonth() + 2, 0));
+      case 'this_year':  return isoDate(new Date(today.getFullYear(), 11, 31));
+      case 'whenever':   return '';
+      default:           return '';
+    }
+  }
+  function groupForDate(dueStr) {
+    const d = parseISODate(dueStr);
+    if (!d) return 'no_date';
+    const today = startOfToday();
+    const diffDays = Math.round((d - today) / 86400000);
+    if (diffDays < 0)  return 'overdue';
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'tomorrow';
+    const dow = today.getDay();
+    const daysToSunday = ((7 - dow) % 7) || 7;
+    if (diffDays <= daysToSunday)     return 'this_week';
+    if (diffDays <= daysToSunday + 7) return 'next_week';
+    if (d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth()) return 'this_month';
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    if (d.getFullYear() === nextMonth.getFullYear() && d.getMonth() === nextMonth.getMonth()) return 'next_month';
+    if (d.getFullYear() === today.getFullYear()) return 'this_year';
+    return 'later';
+  }
+  function formatDateLabel(dueStr) {
+    const d = parseISODate(dueStr);
+    if (!d) return '';
+    const today = startOfToday();
+    const diffDays = Math.round((d - today) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    const sameYear = d.getFullYear() === today.getFullYear();
+    const opts = sameYear
+      ? { weekday: 'short', month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' };
+    return d.toLocaleDateString(undefined, opts);
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────
+  function getCategoryOptions() {
+    const used = todos.map(t => t.category).filter(Boolean);
+    return Array.from(new Set([...SEED_CATEGORIES, ...used])).sort((a, b) => a.localeCompare(b));
+  }
+
+  // Deterministic color per category name (stable across reloads & devices).
+  function categoryStyle(name) {
+    if (!name) return null;
+    let h = 5381;
+    for (let i = 0; i < name.length; i++) {
+      h = ((h * 33) ^ name.charCodeAt(i)) >>> 0;
+    }
+    const hue = h % 360;
+    return {
+      bg:     `hsl(${hue} 75% 92%)`,
+      color:  `hsl(${hue} 50% 28%)`,
+      border: `hsl(${hue} 55% 78%)`,
+    };
+  }
+
+  function visibleTodos() {
+    let v = hideCompleted ? todos.filter(t => !t.done) : todos;
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      v = v.filter(t =>
+        (t.text || '').toLowerCase().includes(q) ||
+        (t.category || '').toLowerCase().includes(q) ||
+        (t.notes || '').toLowerCase().includes(q)
+      );
+    }
+    return v;
+  }
+
+  // ─── Render ────────────────────────────────────────────────
+  function render() {
+    const root = $('list');
+    root.innerHTML = '';
+
+    // Update task count in header (open / total).
+    const countEl = $('taskCount');
+    if (todos.length === 0) {
+      countEl.hidden = true;
+    } else {
+      const open = todos.filter(t => !t.done).length;
+      countEl.hidden = false;
+      countEl.textContent = `· ${open} open / ${todos.length} total`;
+    }
+
+    const visible = visibleTodos();
+    // Sort: starred first; then by due date ascending; then no-date tasks last.
+    const sorted = [...visible].sort((a, b) => {
+      if (a.starred !== b.starred) return a.starred ? -1 : 1;
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
+    });
+    for (const g of GROUPS) {
+      const items = sorted.filter(t => groupForDate(t.due) === g.value);
+      if (!items.length) continue;
+      root.append(renderGroup(g, items));
+    }
+
+    // Empty states
+    if (todos.length === 0) {
+      root.append(renderEmptyState('No tasks yet.', 'Add one above to get started.'));
+    } else if (visible.length === 0) {
+      if (searchQuery.trim()) {
+        root.append(renderEmptyState(`No tasks match "${searchQuery.trim()}".`, 'Try a different search.'));
+      } else if (hideCompleted) {
+        root.append(renderEmptyState('All tasks are completed.', 'Uncheck "Hide completed" to see them.'));
+      }
+    }
+
+    // post-render focus for inline edit
+    if (editingId !== null) {
+      const input = root.querySelector('.text-edit');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
+  }
+
+  function renderEmptyState(main, hint) {
+    const div = document.createElement('div');
+    div.className = 'empty-state';
+    const p = document.createElement('div');
+    p.textContent = main;
+    div.append(p);
+    if (hint) {
+      const h = document.createElement('div');
+      h.className = 'hint';
+      h.textContent = hint;
+      div.append(h);
+    }
+    return div;
+  }
+
+  function renderGroup(horizon, items) {
+    const section = document.createElement('section');
+    section.className = 'group';
+    const h = document.createElement('h2');
+    h.textContent = horizon.label;
+    section.append(h);
+    const ul = document.createElement('ul');
+    for (const t of items) ul.append(renderTask(t));
+    section.append(ul);
+    return section;
+  }
+
+  function renderTask(t) {
+    const li = document.createElement('li');
+    if (t.done) li.classList.add('done');
+    if (expandedId === t.id) li.classList.add('expanded');
+
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    // Click row whitespace to toggle expand. Skip if click hit an interactive child.
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('button, input, .text, .text-edit')) return;
+      expandedId = expandedId === t.id ? null : t.id;
+      render();
+    });
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = t.done;
+    cb.addEventListener('change', () => toggleTodo(t.id));
+    row.append(cb);
+
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'star' + (t.starred ? ' on' : '');
+    star.title = t.starred ? 'Unstar' : 'Star';
+    star.textContent = t.starred ? '★' : '☆';
+    star.addEventListener('click', () => updateField(t.id, 'starred', !t.starred));
+    row.append(star);
+
+    if (editingId === t.id) {
+      row.append(renderTextInput(t));
+    } else {
+      row.append(renderTextSpan(t));
+    }
+
+    if (t.category) {
+      const badge = document.createElement('span');
+      badge.className = 'badge category-badge';
+      badge.title = 'Category';
+      badge.textContent = t.category;
+      const s = categoryStyle(t.category);
+      if (s) {
+        badge.style.backgroundColor = s.bg;
+        badge.style.color = s.color;
+        badge.style.borderColor = s.border;
+      }
+      row.append(badge);
+    }
+
+    if (t.due) {
+      const dateBadge = document.createElement('span');
+      dateBadge.className = 'badge date-badge';
+      const isOverdue = groupForDate(t.due) === 'overdue' && !t.done;
+      if (isOverdue) {
+        dateBadge.classList.add('overdue');
+        li.classList.add('overdue');
+      }
+      dateBadge.title = t.due;
+      dateBadge.textContent = formatDateLabel(t.due);
+      row.append(dateBadge);
+    }
+
+    const chev = document.createElement('button');
+    chev.type = 'button';
+    chev.className = 'icon-btn chevron';
+    chev.title = expandedId === t.id ? 'Collapse' : 'Expand';
+    chev.textContent = expandedId === t.id ? '▾' : '▸';
+    chev.addEventListener('click', () => {
+      expandedId = expandedId === t.id ? null : t.id;
+      render();
+    });
+    row.append(chev);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn delete';
+    del.title = 'Delete';
+    del.textContent = '×';
+    del.addEventListener('click', () => deleteTodo(t.id));
+    row.append(del);
+
+    li.append(row);
+
+    if (expandedId === t.id) {
+      li.append(renderExpandPanel(t));
+    }
+
+    return li;
+  }
+
+  function renderTextSpan(t) {
+    const span = document.createElement('span');
+    span.className = 'text';
+    span.textContent = t.text;
+    span.title = 'Click to edit';
+    span.addEventListener('click', () => {
+      editingId = t.id;
+      render();
+    });
+    return span;
+  }
+
+  function renderTextInput(t) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'text-edit';
+    input.value = t.text;
+    let canceled = false;
+    let saved = false;
+
+    const finish = async () => {
+      if (saved) return;
+      saved = true;
+      const v = input.value.trim();
+      editingId = null;
+      if (canceled || !v || v === t.text) {
+        render();
+      } else {
+        await updateField(t.id, 'text', v);
+      }
+    };
+    input.addEventListener('blur', finish);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        canceled = true;
+        input.blur();
+      }
+    });
+    return input;
+  }
+
+  function renderExpandPanel(t) {
+    const panel = document.createElement('div');
+    panel.className = 'expand-panel';
+
+    // Notes (full width)
+    const notesField = document.createElement('label');
+    notesField.className = 'field full';
+    notesField.append(document.createTextNode('Notes'));
+    const notes = document.createElement('textarea');
+    notes.value = t.notes;
+    notes.placeholder = 'Add a note...';
+    notes.addEventListener('blur', () => {
+      if (notes.value !== t.notes) {
+        updateField(t.id, 'notes', notes.value);
+      }
+    });
+    notesField.append(notes);
+    panel.append(notesField);
+
+    // Category
+    const catField = document.createElement('label');
+    catField.className = 'field';
+    catField.append(document.createTextNode('Category'));
+    catField.append(renderCategoryControl(t));
+    panel.append(catField);
+
+    // Due date (with quick-set chips)
+    const dueField = document.createElement('label');
+    dueField.className = 'field full';
+    dueField.append(document.createTextNode('Due date'));
+
+    const chips = document.createElement('div');
+    chips.className = 'quick-chips';
+    const today = startOfToday();
+    const presets = [
+      { label: 'Today',    days: 0 },
+      { label: 'Tomorrow', days: 1 },
+      { label: '+1 week',  days: 7 },
+      { label: '+1 month', months: 1 },
+    ];
+    for (const p of presets) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p.label;
+      b.addEventListener('click', () => {
+        const d = p.months
+          ? new Date(today.getFullYear(), today.getMonth() + p.months, today.getDate())
+          : addDays(today, p.days);
+        updateField(t.id, 'due', isoDate(d));
+      });
+      chips.append(b);
+    }
+    if (t.due) {
+      const clr = document.createElement('button');
+      clr.type = 'button';
+      clr.className = 'clear';
+      clr.textContent = 'Clear';
+      clr.addEventListener('click', () => updateField(t.id, 'due', ''));
+      chips.append(clr);
+    }
+    dueField.append(chips);
+
+    const dueInput = document.createElement('input');
+    dueInput.type = 'date';
+    dueInput.value = parseISODate(t.due) ? t.due : '';
+    dueInput.addEventListener('change', () => {
+      updateField(t.id, 'due', dueInput.value);
+    });
+    dueField.append(dueInput);
+    panel.append(dueField);
+
+    return panel;
+  }
+
+  function renderCategoryControl(t) {
+    const sel = document.createElement('select');
+
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '(none)';
+    if (!t.category) none.selected = true;
+    sel.append(none);
+
+    const opts = getCategoryOptions();
+    // Ensure the task's current category is present even if not in seed/used (e.g. just added)
+    if (t.category && !opts.includes(t.category)) opts.push(t.category);
+    for (const c of opts) {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if (t.category === c) opt.selected = true;
+      sel.append(opt);
+    }
+
+    const addNew = document.createElement('option');
+    addNew.value = ADD_NEW;
+    addNew.textContent = '+ Add new…';
+    sel.append(addNew);
+
+    sel.addEventListener('change', () => {
+      if (sel.value === ADD_NEW) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'New category';
+        sel.replaceWith(input);
+        input.focus();
+        let saved = false;
+        const finish = async (commit) => {
+          if (saved) return;
+          saved = true;
+          const v = input.value.trim();
+          if (commit && v) {
+            await updateField(t.id, 'category', v);
+          } else {
+            render();
+          }
+        };
+        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+      } else {
+        updateField(t.id, 'category', sel.value);
+      }
+    });
+
+    return sel;
+  }
+
+  // ─── Wire up ───────────────────────────────────────────────
+  $('addForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = $('newTask');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    try {
+      await addTodo(text);
+    } catch (err) {
+      setStatus('Failed to add: ' + extractError(err), true);
+    }
+  });
+
+  $('hideCompleted').addEventListener('change', (e) => {
+    hideCompleted = e.target.checked;
+    render();
+  });
+
+  $('search').addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    render();
+  });
+  $('search').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchQuery) {
+      e.target.value = '';
+      searchQuery = '';
+      render();
+    }
+  });
+
+  // ─── Service worker (PWA) ──────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
