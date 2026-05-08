@@ -13,25 +13,25 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root {
-    --bg: #fafafa;
-    --panel: #ffffff;
-    --panel-2: #f3f4f6;
-    --text: #1a1a1a;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #2563eb;
-    --danger: #dc2626;
-    --done: #9ca3af;
-    --hover: rgba(0,0,0,0.04);
-    --badge-bg: rgba(0,0,0,0.06);
+    --bg:       #faf6ec;
+    --panel:    #fffcf3;
+    --panel-2:  #f3eedf;
+    --text:     #2a2622;
+    --muted:    #857c6c;
+    --border:   #d8cdb6;
+    --accent:   #5d4221;
+    --danger:   #993b2c;
+    --done:     #a99e8a;
+    --hover:    rgba(80,60,30,0.06);
+    --badge-bg: rgba(80,60,30,0.08);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Iowan Old Style', 'Hoefler Text', Cambria, Georgia, 'Times New Roman', serif;
     background: var(--bg);
     color: var(--text);
-    line-height: 1.5;
+    line-height: 1.55;
   }
   main {
     max-width: 640px;
@@ -87,10 +87,40 @@
   }
   button.primary:hover:not(:disabled) { filter: brightness(1.1); }
 
+  .compose {
+    margin-bottom: 16px;
+  }
+  .type-chips {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .type-chips button {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .type-chips button .glyph-mark {
+    font-size: 14px;
+    line-height: 1;
+  }
+  .type-chips button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
   form#addForm {
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
+    margin: 0;
   }
   input[type="text"], textarea, select {
     font: inherit;
@@ -161,10 +191,10 @@
   .group { margin-bottom: 22px; }
   .group:last-child { margin-bottom: 0; }
   .group h2 {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    font-style: italic;
+    letter-spacing: 0.02em;
     color: var(--muted);
     margin: 0 0 8px;
     padding: 0 4px;
@@ -197,6 +227,32 @@
     flex-shrink: 0;
     cursor: pointer;
   }
+  .task-row .glyph {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+  }
+  .task-row .glyph.task-open    { color: var(--text); }
+  .task-row .glyph.task-done    { color: var(--accent); }
+  .task-row .glyph.task-cancelled { color: var(--muted); }
+  .task-row .glyph.event        { color: var(--muted); cursor: default; }
+  .task-row .glyph.note         { color: var(--muted); cursor: default; }
+  .task-row .glyph[disabled]    { cursor: default; }
+  .task-row .glyph:not([disabled]):hover { background: var(--hover); }
+  li.cancelled .task-row .text { text-decoration: line-through; color: var(--done); }
+  li.done .task-row .text { text-decoration: line-through; color: var(--done); }
   .task-row .star {
     background: transparent;
     border: none;
@@ -388,6 +444,121 @@
     font-size: 14px;
   }
   .empty-state .hint { font-size: 12px; margin-top: 4px; }
+
+  /* ─── Review modal ──────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(40, 32, 20, 0.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    z-index: 100;
+    overflow-y: auto;
+  }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 18px 14px;
+    max-width: 560px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(40,32,20,0.18);
+  }
+  .modal h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    font-style: italic;
+  }
+  .modal .modal-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .modal .review-section {
+    margin-bottom: 14px;
+  }
+  .modal .review-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+  .modal ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .modal li {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .modal li:last-child { border-bottom: none; }
+  .modal .review-row { display: flex; align-items: center; gap: 8px; }
+  .modal .review-row .glyph { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+  .modal .review-row .text { flex: 1; word-break: break-word; }
+  .modal .review-row .muted-date { font-size: 11px; color: var(--danger); white-space: nowrap; }
+  .modal .review-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .modal .review-actions button {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .modal .review-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .modal .review-actions button.cancel:hover { color: var(--danger); border-color: var(--danger); }
+  .modal .review-actions input[type="date"] {
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 999px;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+  .modal-footer button {
+    font: inherit;
+    padding: 7px 14px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .review-btn {
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .review-btn:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -399,10 +570,17 @@
   <div id="authBox" class="auth">
     <button id="signin" class="primary" disabled>Sign in with Google</button>
   </div>
-  <form id="addForm" hidden>
-    <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
-    <button type="submit" class="primary">Add</button>
-  </form>
+  <div id="compose" class="compose" hidden>
+    <div class="type-chips" id="typeChips">
+      <button type="button" data-type="task" class="active"><span class="glyph-mark">•</span> Task</button>
+      <button type="button" data-type="event"><span class="glyph-mark">○</span> Event</button>
+      <button type="button" data-type="note"><span class="glyph-mark">–</span> Note</button>
+    </div>
+    <form id="addForm">
+      <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
+      <button type="submit" class="primary">Add</button>
+    </form>
+  </div>
   <div id="toolbar" hidden>
     <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
     <div class="view-controls">
@@ -413,7 +591,8 @@
       <select id="categoryFilter" title="Filter by category">
         <option value="">All categories</option>
       </select>
-      <label class="toggle"><input type="checkbox" id="hideCompleted"> Hide completed</label>
+      <label class="toggle"><input type="checkbox" id="hideCompleted"> Show only open</label>
+      <button type="button" id="reviewBtn" class="review-btn">Review</button>
     </div>
   </div>
   <div id="list"></div>
@@ -448,8 +627,37 @@
     { value: 'no_date',    label: 'No Date' },
   ];
   const SEED_CATEGORIES = ['Work', 'Personal', 'Errands', 'Health', 'Home'];
-  const FIELD_COL = { text: 'B', category: 'D', due: 'E', notes: 'F', starred: 'G' };
+  const FIELD_COL = { text: 'B', status: 'C', category: 'D', due: 'E', notes: 'F', starred: 'G', type: 'H' };
   const ADD_NEW = '__add_new__';
+
+  const STATUSES = [
+    { value: 'open',      label: 'Open' },
+    { value: 'done',      label: 'Done' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+  const TYPES = [
+    { value: 'task',  label: 'Task',  glyph: '•' },
+    { value: 'event', label: 'Event', glyph: '○' },
+    { value: 'note',  label: 'Note',  glyph: '–' },
+  ];
+  function glyphForEntry(t) {
+    if (t.type === 'event') return '○';
+    if (t.type === 'note')  return '–';
+    if (t.status === 'done')      return '✓';
+    if (t.status === 'cancelled') return '~';
+    return '•';
+  }
+  function normalizeStatus(raw) {
+    const s = String(raw || '').toLowerCase().trim();
+    if (s === 'true'  || s === 'done')      return 'done';
+    if (s === 'cancelled' || s === 'canceled') return 'cancelled';
+    return 'open'; // includes 'false', '', 'open', and anything unknown
+  }
+  function normalizeType(raw) {
+    const s = String(raw || '').toLowerCase().trim();
+    if (s === 'event' || s === 'note') return s;
+    return 'task';
+  }
 
   // ─── State ─────────────────────────────────────────────────
   let tokenClient = null;
@@ -463,6 +671,7 @@
   let searchQuery = '';
   let groupBy = 'date';        // 'date' | 'category'
   let categoryFilter = '';     // '' = all
+  let composeType = 'task';    // 'task' | 'event' | 'note'
 
   const $ = (id) => document.getElementById(id);
 
@@ -583,7 +792,7 @@
     $('authBox').hidden = false;
     $('signin').hidden = false;
     $('signout').hidden = true;
-    $('addForm').hidden = true;
+    $('compose').hidden = true;
     $('toolbar').hidden = true;
     setStatus('Signed out.');
   });
@@ -592,7 +801,7 @@
     $('authBox').hidden = true;
     $('signin').hidden = true;
     $('signout').hidden = false;
-    $('addForm').hidden = false;
+    $('compose').hidden = false;
     $('toolbar').hidden = false;
     try {
       await resolveSheetGid();
@@ -606,7 +815,7 @@
         $('authBox').hidden = false;
         $('signin').hidden = false;
         $('signout').hidden = true;
-        $('addForm').hidden = true;
+        $('compose').hidden = true;
         $('toolbar').hidden = true;
         setStatus('Session expired. Please sign in again.');
         return;
@@ -628,32 +837,37 @@
     setStatus('Loading...');
     const resp = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A2:G`,
+      range: `${SHEET_NAME}!A2:H`,
     });
     const rows = resp.result.values || [];
-    todos = rows.map((r, i) => ({
-      id: r[0] || '',
-      text: r[1] || '',
-      done: String(r[2] || '').toUpperCase() === 'TRUE',
-      category: r[3] || '',
-      due: migrateLegacyBucket(r[4] || ''),
-      notes: r[5] || '',
-      starred: String(r[6] || '').toUpperCase() === 'TRUE',
-      row: i + 2,
-    }));
+    todos = rows.map((r, i) => {
+      const status = normalizeStatus(r[2]);
+      return {
+        id: r[0] || '',
+        text: r[1] || '',
+        status,
+        done: status === 'done', // kept for legacy callers; status is canonical
+        category: r[3] || '',
+        due: migrateLegacyBucket(r[4] || ''),
+        notes: r[5] || '',
+        starred: String(r[6] || '').toUpperCase() === 'TRUE',
+        type: normalizeType(r[7]),
+        row: i + 2,
+      };
+    });
     render();
     setStatus(`${todos.length} task${todos.length === 1 ? '' : 's'}`);
   }
 
-  async function addTodo(text) {
+  async function addTodo(text, type = 'task') {
     const id = String(Date.now());
     setStatus('Adding...');
     await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:G`,
+      range: `${SHEET_NAME}!A:H`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
-      resource: { values: [[id, text, 'FALSE', '', '', '', 'FALSE']] },
+      resource: { values: [[id, text, 'open', '', '', '', 'FALSE', type]] },
     });
     await loadTodos();
   }
@@ -661,18 +875,22 @@
   async function toggleTodo(id) {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
-    const newDone = !todo.done;
-    todo.done = newDone;
+    if (todo.type !== 'task') return; // events and notes don't toggle
+    const prevStatus = todo.status;
+    const newStatus = todo.status === 'done' ? 'open' : 'done';
+    todo.status = newStatus;
+    todo.done = newStatus === 'done';
     render();
     try {
       await gapi.client.sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID,
         range: `${SHEET_NAME}!C${todo.row}`,
         valueInputOption: 'RAW',
-        resource: { values: [[newDone ? 'TRUE' : 'FALSE']] },
+        resource: { values: [[newStatus]] },
       });
     } catch (e) {
-      todo.done = !newDone;
+      todo.status = prevStatus;
+      todo.done = prevStatus === 'done';
       render();
       setStatus('Failed to update: ' + extractError(e), true);
     }
@@ -821,7 +1039,11 @@
   }
 
   function visibleTodos() {
-    let v = hideCompleted ? todos.filter(t => !t.done) : todos;
+    // "Show only open" hides done AND cancelled; events/notes are not
+    // task-completable, so we keep them visible regardless.
+    let v = hideCompleted
+      ? todos.filter(t => t.type !== 'task' || t.status === 'open')
+      : todos;
     if (categoryFilter) {
       v = v.filter(t => (t.category || '') === categoryFilter);
     }
@@ -861,12 +1083,12 @@
     const root = $('list');
     root.innerHTML = '';
 
-    // Update task count in header (open / total).
+    // Update task count in header (open tasks / total entries).
     const countEl = $('taskCount');
     if (todos.length === 0) {
       countEl.hidden = true;
     } else {
-      const open = todos.filter(t => !t.done).length;
+      const open = todos.filter(t => t.type === 'task' && t.status === 'open').length;
       countEl.hidden = false;
       countEl.textContent = `· ${open} open / ${todos.length} total`;
     }
@@ -958,7 +1180,8 @@
 
   function renderTask(t) {
     const li = document.createElement('li');
-    if (t.done) li.classList.add('done');
+    if (t.type === 'task' && t.status === 'done')      li.classList.add('done');
+    if (t.type === 'task' && t.status === 'cancelled') li.classList.add('cancelled');
     if (expandedId === t.id) li.classList.add('expanded');
 
     const row = document.createElement('div');
@@ -970,11 +1193,21 @@
       render();
     });
 
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = t.done;
-    cb.addEventListener('change', () => toggleTodo(t.id));
-    row.append(cb);
+    // Glyph button — replaces the old checkbox.
+    const glyphBtn = document.createElement('button');
+    glyphBtn.type = 'button';
+    glyphBtn.className = 'glyph';
+    glyphBtn.textContent = glyphForEntry(t);
+    if (t.type === 'task') {
+      glyphBtn.classList.add('task-' + t.status);
+      glyphBtn.title = t.status === 'done' ? 'Mark open' : 'Mark done';
+      glyphBtn.addEventListener('click', () => toggleTodo(t.id));
+    } else {
+      glyphBtn.classList.add(t.type); // 'event' or 'note'
+      glyphBtn.disabled = true;
+      glyphBtn.title = t.type === 'event' ? 'Event' : 'Note';
+    }
+    row.append(glyphBtn);
 
     const star = document.createElement('button');
     star.type = 'button';
@@ -1007,7 +1240,8 @@
     if (t.due) {
       const dateBadge = document.createElement('span');
       dateBadge.className = 'badge date-badge';
-      const isOverdue = groupForDate(t.due) === 'overdue' && !t.done;
+      const isOverdue = groupForDate(t.due) === 'overdue'
+        && (t.type !== 'task' || t.status === 'open');
       if (isOverdue) {
         dateBadge.classList.add('overdue');
         li.classList.add('overdue');
@@ -1108,6 +1342,40 @@
     });
     notesField.append(notes);
     panel.append(notesField);
+
+    // Type
+    const typeField = document.createElement('label');
+    typeField.className = 'field';
+    typeField.append(document.createTextNode('Type'));
+    const typeSel = document.createElement('select');
+    for (const ty of TYPES) {
+      const opt = document.createElement('option');
+      opt.value = ty.value;
+      opt.textContent = `${ty.glyph}  ${ty.label}`;
+      if (t.type === ty.value) opt.selected = true;
+      typeSel.append(opt);
+    }
+    typeSel.addEventListener('change', () => updateField(t.id, 'type', typeSel.value));
+    typeField.append(typeSel);
+    panel.append(typeField);
+
+    // Status (only for tasks)
+    if (t.type === 'task') {
+      const statusField = document.createElement('label');
+      statusField.className = 'field';
+      statusField.append(document.createTextNode('Status'));
+      const statusSel = document.createElement('select');
+      for (const s of STATUSES) {
+        const opt = document.createElement('option');
+        opt.value = s.value;
+        opt.textContent = s.label;
+        if (t.status === s.value) opt.selected = true;
+        statusSel.append(opt);
+      }
+      statusSel.addEventListener('change', () => updateField(t.id, 'status', statusSel.value));
+      statusField.append(statusSel);
+      panel.append(statusField);
+    }
 
     // Category
     const catField = document.createElement('label');
@@ -1228,10 +1496,22 @@
     if (!text) return;
     input.value = '';
     try {
-      await addTodo(text);
+      await addTodo(text, composeType);
     } catch (err) {
       setStatus('Failed to add: ' + extractError(err), true);
     }
+  });
+
+  // Type chips above the add form: pick what kind of entry the next Add creates.
+  $('typeChips').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-type]');
+    if (!btn) return;
+    composeType = btn.dataset.type;
+    for (const c of $('typeChips').querySelectorAll('button')) {
+      c.classList.toggle('active', c.dataset.type === composeType);
+    }
+    const placeholders = { task: 'Add a task...', event: 'Add an event...', note: 'Add a note...' };
+    $('newTask').placeholder = placeholders[composeType] || 'Add...';
   });
 
   $('hideCompleted').addEventListener('change', (e) => {
@@ -1259,6 +1539,146 @@
     categoryFilter = e.target.value;
     render();
   });
+
+  // ─── Review modal ──────────────────────────────────────────
+  $('reviewBtn').addEventListener('click', openReviewModal);
+
+  function openReviewModal() {
+    const today = isoDate(startOfToday());
+    const overdue = todos.filter(t =>
+      t.type === 'task' && t.status === 'open' && t.due && t.due < today
+    ).sort((a, b) => a.due.localeCompare(b.due));
+    const nodate = todos.filter(t =>
+      t.type === 'task' && t.status === 'open' && !t.due
+    );
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) close();
+    });
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+
+    const h = document.createElement('h2');
+    h.textContent = 'Review';
+    modal.append(h);
+
+    const sub = document.createElement('p');
+    sub.className = 'modal-sub';
+    const total = overdue.length + nodate.length;
+    sub.textContent = total === 0
+      ? 'Nothing to review — everything is on track.'
+      : `${overdue.length} overdue · ${nodate.length} no-date task${nodate.length === 1 ? '' : 's'}`;
+    modal.append(sub);
+
+    if (overdue.length) {
+      modal.append(reviewSection('Overdue', overdue));
+    }
+    if (nodate.length) {
+      modal.append(reviewSection('Open, no date', nodate));
+    }
+    if (!overdue.length && !nodate.length) {
+      const ok = document.createElement('div');
+      ok.className = 'empty-state';
+      ok.textContent = 'No overdue or undated open tasks.';
+      modal.append(ok);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'modal-footer';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = 'Done';
+    closeBtn.addEventListener('click', close);
+    footer.append(closeBtn);
+    modal.append(footer);
+
+    backdrop.append(modal);
+    document.body.append(backdrop);
+
+    function close() {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+  }
+
+  function reviewSection(title, items) {
+    const section = document.createElement('div');
+    section.className = 'review-section';
+    const h3 = document.createElement('h3');
+    h3.textContent = title;
+    section.append(h3);
+    const ul = document.createElement('ul');
+    for (const t of items) ul.append(reviewItem(t));
+    section.append(ul);
+    return section;
+  }
+
+  function reviewItem(t) {
+    const li = document.createElement('li');
+    const top = document.createElement('div');
+    top.className = 'review-row';
+    const g = document.createElement('span');
+    g.className = 'glyph';
+    g.textContent = glyphForEntry(t);
+    top.append(g);
+    const txt = document.createElement('span');
+    txt.className = 'text';
+    txt.textContent = t.text;
+    top.append(txt);
+    if (t.due) {
+      const d = document.createElement('span');
+      d.className = 'muted-date';
+      d.textContent = formatDateLabel(t.due);
+      top.append(d);
+    }
+    li.append(top);
+
+    const actions = document.createElement('div');
+    actions.className = 'review-actions';
+
+    const today = startOfToday();
+    const mkBtn = (label, onClick, cls) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      if (cls) b.classList.add(cls);
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        await onClick();
+        // Re-render the modal to drop this item.
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) backdrop.remove();
+        openReviewModal();
+      });
+      return b;
+    };
+
+    actions.append(mkBtn('Done',     () => updateField(t.id, 'status', 'done')));
+    actions.append(mkBtn('Cancel',   () => updateField(t.id, 'status', 'cancelled'), 'cancel'));
+    actions.append(mkBtn('→ Today',  () => updateField(t.id, 'due', isoDate(today))));
+    actions.append(mkBtn('→ Tomorrow', () => updateField(t.id, 'due', isoDate(addDays(today, 1)))));
+
+    const datePick = document.createElement('input');
+    datePick.type = 'date';
+    datePick.title = 'Reschedule to a specific date';
+    datePick.addEventListener('change', async () => {
+      if (!datePick.value) return;
+      datePick.disabled = true;
+      await updateField(t.id, 'due', datePick.value);
+      const backdrop = document.querySelector('.modal-backdrop');
+      if (backdrop) backdrop.remove();
+      openReviewModal();
+    });
+    actions.append(datePick);
+
+    li.append(actions);
+    return li;
+  }
 
   // ─── Service worker (PWA) ──────────────────────────────────
   if ('serviceWorker' in navigator) {
