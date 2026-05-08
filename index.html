@@ -330,6 +330,27 @@
   .expand-panel .field .date-clear:hover { color: var(--text); }
   @media (max-width: 480px) {
     .expand-panel { grid-template-columns: 1fr; padding-left: 14px; }
+    /* Hide the chevron on phones — the whole row is already tap-to-expand. */
+    .task-row .chevron { display: none; }
+    .task-row {
+      gap: 8px;
+      padding: 12px 12px;
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+    /* Keep task text legible: never let it be squeezed below half the row;
+       if there isn't room for badges, they wrap to a new line below. */
+    .task-row .text,
+    .task-row .text-edit {
+      min-width: 55%;
+    }
+    .task-row .badge {
+      max-width: none;
+      font-size: 10px;
+      padding: 1px 7px;
+    }
+    /* Push the delete button to the far right of whichever row it lands on. */
+    .task-row .delete { margin-left: auto; }
   }
 
   #status {
