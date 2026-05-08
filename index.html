@@ -659,8 +659,8 @@
   <div id="compose" class="compose" hidden>
     <div class="type-chips" id="typeChips">
       <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
-      <button type="button" data-type="event"><span class="glyph-mark">◇</span> Event</button>
-      <button type="button" data-type="note"><span class="glyph-mark">–</span> Note</button>
+      <button type="button" data-type="event"><span class="glyph-mark">📅</span> Event</button>
+      <button type="button" data-type="note"><span class="glyph-mark">📝</span> Note</button>
     </div>
     <form id="addForm">
       <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
@@ -724,12 +724,12 @@
   ];
   const TYPES = [
     { value: 'task',  label: 'Task',  glyph: '○' },
-    { value: 'event', label: 'Event', glyph: '◇' },
-    { value: 'note',  label: 'Note',  glyph: '–' },
+    { value: 'event', label: 'Event', glyph: '📅' },
+    { value: 'note',  label: 'Note',  glyph: '📝' },
   ];
   function glyphForEntry(t) {
-    if (t.type === 'event') return '◇';
-    if (t.type === 'note')  return '–';
+    if (t.type === 'event') return '📅';
+    if (t.type === 'note')  return '📝';
     if (t.status === 'done')      return '✓';
     if (t.status === 'cancelled') return '~';
     return '○';
