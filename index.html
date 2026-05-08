@@ -330,27 +330,30 @@
   .expand-panel .field .date-clear:hover { color: var(--text); }
   @media (max-width: 480px) {
     .expand-panel { grid-template-columns: 1fr; padding-left: 14px; }
-    /* Hide the chevron on phones — the whole row is already tap-to-expand. */
+    /* Hide the chevron on phones — whole row is tap-to-expand. */
     .task-row .chevron { display: none; }
     .task-row {
-      gap: 8px;
-      padding: 12px 12px;
       flex-wrap: wrap;
+      gap: 8px;
       row-gap: 6px;
+      padding: 12px;
     }
-    /* Keep task text legible: never let it be squeezed below half the row;
-       if there isn't room for badges, they wrap to a new line below. */
-    .task-row .text,
-    .task-row .text-edit {
-      min-width: 55%;
+    /* Layout via order:
+         line 1: checkbox · star · text (full remaining width)
+         line 2: category · date · delete
+       The ::after break forces a wrap, but only when there are badges to push down. */
+    .task-row:has(.badge)::after {
+      content: '';
+      flex-basis: 100%;
+      height: 0;
+      order: 5;
     }
-    .task-row .badge {
-      max-width: none;
-      font-size: 10px;
-      padding: 1px 7px;
-    }
-    /* Push the delete button to the far right of whichever row it lands on. */
-    .task-row .delete { margin-left: auto; }
+    .task-row > input[type="checkbox"] { order: 1; }
+    .task-row > .star                  { order: 2; }
+    .task-row > .text,
+    .task-row > .text-edit             { order: 3; flex: 1 1 0; min-width: 0; }
+    .task-row > .badge                 { order: 6; max-width: none; font-size: 11px; padding: 2px 8px; }
+    .task-row > .delete                { order: 7; margin-left: auto; }
   }
 
   #status {
