@@ -6,7 +6,9 @@
 <title>To-Do</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="To-Do">
@@ -253,6 +255,8 @@
   .task-row .glyph:not([disabled]):hover { background: var(--hover); }
   li.cancelled .task-row .text { text-decoration: line-through; color: var(--done); }
   li.done .task-row .text { text-decoration: line-through; color: var(--done); }
+  li.past-event { opacity: 0.6; }
+  li.past-event .task-row .text { color: var(--muted); font-style: italic; }
   .task-row .star {
     background: transparent;
     border: none;
@@ -401,6 +405,34 @@
     letter-spacing: 0;
   }
   .expand-panel .field .date-clear:hover { color: var(--text); }
+  .expand-panel .field .cat-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .expand-panel .field .cat-wrap select { flex: 1; min-width: 0; }
+  .expand-panel .field .cat-rename {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .expand-panel .field .cat-rename:hover { color: var(--accent); border-color: var(--accent); }
+  .expand-panel .field .cat-rename-input {
+    flex: 1;
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid var(--accent);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 4px;
+  }
   @media (max-width: 480px) {
     .expand-panel { grid-template-columns: 1fr; padding-left: 14px; }
     /* Hide the chevron on phones — whole row is tap-to-expand. */
@@ -559,6 +591,60 @@
     cursor: pointer;
   }
   .review-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ─── Undo toasts ───────────────────────────────────── */
+  #toasts {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    z-index: 200;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    box-shadow: 0 6px 20px rgba(40,32,20,0.18);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 90vw;
+    animation: toast-in 180ms ease-out;
+  }
+  .toast .toast-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+  }
+  .toast button {
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .toast button:hover { background: var(--accent); color: #fff; }
+  .toast.fade-out { animation: toast-out 220ms ease-in forwards; }
+  @keyframes toast-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  @keyframes toast-out {
+    from { opacity: 1; }
+    to   { opacity: 0; transform: translateY(8px); }
+  }
 </style>
 </head>
 <body>
@@ -572,8 +658,8 @@
   </div>
   <div id="compose" class="compose" hidden>
     <div class="type-chips" id="typeChips">
-      <button type="button" data-type="task" class="active"><span class="glyph-mark">•</span> Task</button>
-      <button type="button" data-type="event"><span class="glyph-mark">○</span> Event</button>
+      <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
+      <button type="button" data-type="event"><span class="glyph-mark">◇</span> Event</button>
       <button type="button" data-type="note"><span class="glyph-mark">–</span> Note</button>
     </div>
     <form id="addForm">
@@ -598,6 +684,7 @@
   <div id="list"></div>
   <p id="status">Loading Google libraries...</p>
 </main>
+<div id="toasts" aria-live="polite" aria-atomic="true"></div>
 
 <script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
@@ -636,16 +723,16 @@
     { value: 'cancelled', label: 'Cancelled' },
   ];
   const TYPES = [
-    { value: 'task',  label: 'Task',  glyph: '•' },
-    { value: 'event', label: 'Event', glyph: '○' },
+    { value: 'task',  label: 'Task',  glyph: '○' },
+    { value: 'event', label: 'Event', glyph: '◇' },
     { value: 'note',  label: 'Note',  glyph: '–' },
   ];
   function glyphForEntry(t) {
-    if (t.type === 'event') return '○';
+    if (t.type === 'event') return '◇';
     if (t.type === 'note')  return '–';
     if (t.status === 'done')      return '✓';
     if (t.status === 'cancelled') return '~';
-    return '•';
+    return '○';
   }
   function normalizeStatus(raw) {
     const s = String(raw || '').toLowerCase().trim();
@@ -920,28 +1007,94 @@
     }
   }
 
-  async function deleteTodo(id) {
+  // Map of pending delete timers, keyed by todo id, so undo can cancel them.
+  const pendingDeleteTimers = new Map();
+  const UNDO_MS = 6000;
+
+  function deleteTodo(id) {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
-    setStatus('Deleting...');
     if (expandedId === id) expandedId = null;
     if (editingId === id) editingId = null;
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
-      resource: {
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: sheetGid,
-              dimension: 'ROWS',
-              startIndex: todo.row - 1,
-              endIndex: todo.row,
-            },
-          },
-        }],
-      },
+    todo._pendingDelete = true;
+    render();
+
+    const undoToast = showUndoToast(`Deleted "${todo.text || 'task'}"`, () => {
+      // Undo: clear flag, cancel timer, re-render
+      delete todo._pendingDelete;
+      const timer = pendingDeleteTimers.get(id);
+      if (timer) {
+        clearTimeout(timer);
+        pendingDeleteTimers.delete(id);
+      }
+      render();
     });
-    await loadTodos();
+
+    const timer = setTimeout(async () => {
+      pendingDeleteTimers.delete(id);
+      undoToast.dismiss();
+      // Re-locate the todo (in case array shifted from other operations)
+      const stillThere = todos.find(t => t.id === id);
+      if (!stillThere || !stillThere._pendingDelete) return;
+      try {
+        await gapi.client.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SHEET_ID,
+          resource: {
+            requests: [{
+              deleteDimension: {
+                range: {
+                  sheetId: sheetGid,
+                  dimension: 'ROWS',
+                  startIndex: stillThere.row - 1,
+                  endIndex: stillThere.row,
+                },
+              },
+            }],
+          },
+        });
+        await loadTodos();
+      } catch (e) {
+        delete stillThere._pendingDelete;
+        render();
+        setStatus('Failed to delete: ' + extractError(e), true);
+      }
+    }, UNDO_MS);
+    pendingDeleteTimers.set(id, timer);
+  }
+
+  function showUndoToast(message, onUndo) {
+    const root = $('toasts');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+
+    const txt = document.createElement('span');
+    txt.className = 'toast-text';
+    txt.textContent = message;
+    toast.append(txt);
+
+    const undoBtn = document.createElement('button');
+    undoBtn.type = 'button';
+    undoBtn.textContent = 'Undo';
+    undoBtn.addEventListener('click', () => {
+      onUndo();
+      dismiss();
+    });
+    toast.append(undoBtn);
+
+    root.append(toast);
+
+    let dismissed = false;
+    function dismiss() {
+      if (dismissed) return;
+      dismissed = true;
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 220);
+    }
+    // Auto-dismiss when the timer expires (slightly after).
+    const autoTimer = setTimeout(dismiss, UNDO_MS + 200);
+    return {
+      dismiss: () => { clearTimeout(autoTimer); dismiss(); },
+    };
   }
 
   // ─── Date helpers ──────────────────────────────────────────
@@ -1039,11 +1192,13 @@
   }
 
   function visibleTodos() {
+    // Hide rows that are mid-undo (deleted but inside the 6s undo window).
+    let v = todos.filter(t => !t._pendingDelete);
     // "Show only open" hides done AND cancelled; events/notes are not
     // task-completable, so we keep them visible regardless.
-    let v = hideCompleted
-      ? todos.filter(t => t.type !== 'task' || t.status === 'open')
-      : todos;
+    if (hideCompleted) {
+      v = v.filter(t => t.type !== 'task' || t.status === 'open');
+    }
     if (categoryFilter) {
       v = v.filter(t => (t.category || '') === categoryFilter);
     }
@@ -1182,6 +1337,10 @@
     const li = document.createElement('li');
     if (t.type === 'task' && t.status === 'done')      li.classList.add('done');
     if (t.type === 'task' && t.status === 'cancelled') li.classList.add('cancelled');
+    if (t.type === 'event' && t.due) {
+      const evDate = parseISODate(t.due);
+      if (evDate && evDate < startOfToday()) li.classList.add('past-event');
+    }
     if (expandedId === t.id) li.classList.add('expanded');
 
     const row = document.createElement('div');
@@ -1433,6 +1592,11 @@
   }
 
   function renderCategoryControl(t) {
+    // The category control is a select; if there's a current category, we also
+    // append a small "Rename" button next to it that bulk-renames everywhere.
+    const wrap = document.createElement('div');
+    wrap.className = 'cat-wrap';
+
     const sel = document.createElement('select');
 
     const none = document.createElement('option');
@@ -1442,7 +1606,6 @@
     sel.append(none);
 
     const opts = getCategoryOptions();
-    // Ensure the task's current category is present even if not in seed/used (e.g. just added)
     if (t.category && !opts.includes(t.category)) opts.push(t.category);
     for (const c of opts) {
       const opt = document.createElement('option');
@@ -1485,7 +1648,73 @@
       }
     });
 
-    return sel;
+    wrap.append(sel);
+
+    if (t.category) {
+      const rename = document.createElement('button');
+      rename.type = 'button';
+      rename.className = 'cat-rename';
+      rename.textContent = 'Rename';
+      rename.title = `Rename "${t.category}" across all tasks`;
+      rename.addEventListener('click', () => {
+        const oldName = t.category;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldName;
+        input.className = 'cat-rename-input';
+        wrap.replaceChildren(input);
+        input.focus();
+        input.select();
+        let saved = false;
+        const finish = async (commit) => {
+          if (saved) return;
+          saved = true;
+          const v = input.value.trim();
+          if (commit && v && v !== oldName) {
+            await renameCategoryEverywhere(oldName, v);
+          } else {
+            render();
+          }
+        };
+        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+      });
+      wrap.append(rename);
+    }
+
+    return wrap;
+  }
+
+  async function renameCategoryEverywhere(oldName, newName) {
+    if (!oldName || !newName || oldName === newName) return;
+    const affected = todos.filter(t => t.category === oldName);
+    if (!affected.length) { render(); return; }
+    // Optimistic update
+    for (const t of affected) t.category = newName;
+    if (categoryFilter === oldName) categoryFilter = newName;
+    render();
+    try {
+      await gapi.client.sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        resource: {
+          valueInputOption: 'RAW',
+          data: affected.map(t => ({
+            range: `${SHEET_NAME}!D${t.row}`,
+            values: [[newName]],
+          })),
+        },
+      });
+      setStatus(`Renamed "${oldName}" → "${newName}" on ${affected.length} task${affected.length === 1 ? '' : 's'}.`);
+    } catch (e) {
+      // Revert
+      for (const t of affected) t.category = oldName;
+      if (categoryFilter === newName) categoryFilter = oldName;
+      render();
+      setStatus('Failed to rename: ' + extractError(e), true);
+    }
   }
 
   // ─── Wire up ───────────────────────────────────────────────
@@ -1679,6 +1908,23 @@
     li.append(actions);
     return li;
   }
+
+  // ─── Keyboard shortcuts ────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    // Skip when typing in any input/textarea/select/contenteditable.
+    const tgt = e.target;
+    if (tgt && tgt.matches && tgt.matches('input, textarea, select, [contenteditable], [contenteditable=""], [contenteditable="true"]')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === '/') {
+      const search = $('search');
+      if (search && !search.closest('[hidden]')) { e.preventDefault(); search.focus(); }
+    } else if (e.key === 'n' || e.key === 'N') {
+      const newTask = $('newTask');
+      if (newTask && !newTask.closest('[hidden]')) { e.preventDefault(); newTask.focus(); }
+    } else if (e.key === 'Escape') {
+      if (expandedId !== null) { expandedId = null; render(); }
+    }
+  });
 
   // ─── Service worker (PWA) ──────────────────────────────────
   if ('serviceWorker' in navigator) {
