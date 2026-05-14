@@ -675,8 +675,6 @@
   }
   @media (max-width: 480px) {
     .expand-panel { grid-template-columns: 1fr; padding-left: 14px; }
-    /* Hide the chevron on phones — whole row is tap-to-expand. */
-    .task-row .chevron { display: none; }
     .task-row {
       flex-wrap: wrap;
       gap: 8px;
@@ -684,21 +682,26 @@
       padding: 12px;
     }
     /* Layout via order:
-         line 1: checkbox · star · text (full remaining width)
-         line 2: category · date · delete
-       The ::after break forces a wrap, but only when there are badges to push down. */
-    .task-row:has(.badge)::after {
+         line 1: checkbox/glyph · star · text (full remaining width)
+         line 2: category · date · chevron · delete
+       The ::after break forces a wrap when there are badges or a chevron.
+       Chevron is included so it's always reachable as a tap target. */
+    .task-row::after {
       content: '';
       flex-basis: 100%;
       height: 0;
       order: 5;
     }
     .task-row > input[type="checkbox"] { order: 1; }
+    .task-row > .glyph                 { order: 1; }
     .task-row > .star                  { order: 2; }
     .task-row > .text,
     .task-row > .text-edit             { order: 3; flex: 1 1 0; min-width: 0; }
+    .task-row > .title                 { order: 3; flex: 1 1 0; min-width: 0; }
     .task-row > .badge                 { order: 6; max-width: none; font-size: 11px; padding: 2px 8px; }
-    .task-row > .delete                { order: 7; margin-left: auto; }
+    .task-row > .stars-badge           { order: 6; }
+    .task-row > .chevron               { order: 6; font-size: 14px; padding: 6px 10px; }
+    .task-row > .delete                { order: 7; margin-left: auto; padding: 6px 10px; }
   }
 
   #status {
@@ -1041,6 +1044,8 @@
   let groupBy = 'date';        // 'date' | 'category'
   let categoryFilter = '';     // '' = all
   let composeType = 'task';    // 'task' | 'event' | 'note'
+  let pendingScrollToTask = null;  // id of task to scroll into view next render
+  let pendingScrollToBook = null;  // id of book to scroll into view next render
 
   // ─── Books state ───────────────────────────────────────────
   let books = [];
@@ -1276,6 +1281,10 @@
       resource: { values: [[id, text, 'open', '', '', '', 'FALSE', type]] },
     });
     await loadTodos();
+    // Jump straight into the new entry's detail panel.
+    expandedId = id;
+    pendingScrollToTask = id;
+    render();
   }
 
   async function toggleTodo(id) {
@@ -1623,6 +1632,13 @@
         input.select();
       }
     }
+
+    // post-render scroll for tasks that just moved groups (e.g. date changed)
+    if (pendingScrollToTask) {
+      const li = root.querySelector(`li[data-task-id="${CSS.escape(pendingScrollToTask)}"]`);
+      if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      pendingScrollToTask = null;
+    }
   }
 
   function renderEmptyState(main, hint) {
@@ -1654,6 +1670,7 @@
 
   function renderTask(t) {
     const li = document.createElement('li');
+    li.dataset.taskId = t.id;
     if (t.type === 'task' && t.status === 'done')      li.classList.add('done');
     if (t.type === 'task' && t.status === 'cancelled') li.classList.add('cancelled');
     if (t.type === 'event' && t.due) {
@@ -1884,6 +1901,7 @@
         const d = p.months
           ? new Date(today.getFullYear(), today.getMonth() + p.months, today.getDate())
           : addDays(today, p.days);
+        pendingScrollToTask = t.id;
         updateField(t.id, 'due', isoDate(d));
       });
       chips.append(b);
@@ -1893,7 +1911,10 @@
       clr.type = 'button';
       clr.className = 'clear';
       clr.textContent = 'Clear';
-      clr.addEventListener('click', () => updateField(t.id, 'due', ''));
+      clr.addEventListener('click', () => {
+        pendingScrollToTask = t.id;
+        updateField(t.id, 'due', '');
+      });
       chips.append(clr);
     }
     dueField.append(chips);
@@ -1902,6 +1923,7 @@
     dueInput.type = 'date';
     dueInput.value = parseISODate(t.due) ? t.due : '';
     dueInput.addEventListener('change', () => {
+      pendingScrollToTask = t.id;   // task is about to jump groups — bring it back into view
       updateField(t.id, 'due', dueInput.value);
     });
     dueField.append(dueInput);
@@ -2090,6 +2112,9 @@
       resource: { values: [[id, title, '', '', '', '', '', '', '', '']] },
     });
     await loadBooks();
+    expandedBookId = id;
+    pendingScrollToBook = id;
+    renderBooks();
   }
 
   async function updateBookField(id, field, value) {
@@ -2270,6 +2295,13 @@
       const inp = root.querySelector('.book-title-edit');
       if (inp) { inp.focus(); inp.select(); }
     }
+
+    // Scroll a just-added/changed book into view.
+    if (pendingScrollToBook) {
+      const li = root.querySelector(`li[data-book-id="${CSS.escape(pendingScrollToBook)}"]`);
+      if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      pendingScrollToBook = null;
+    }
   }
 
   function renderBookGroup(label, items) {
@@ -2286,6 +2318,7 @@
 
   function renderBookRow(b) {
     const li = document.createElement('li');
+    li.dataset.bookId = b.id;
     if (expandedBookId === b.id) li.classList.add('expanded');
 
     const row = document.createElement('div');
@@ -2740,6 +2773,7 @@
       li.title = 'View in Books';
       li.addEventListener('click', () => {
         expandedBookId = b.id;
+        pendingScrollToBook = b.id;
         switchView('books');
       });
       const t = document.createElement('span');
