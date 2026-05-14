@@ -127,6 +127,41 @@
     white-space: nowrap;
   }
 
+  /* ─── Book lookup block (expand panel footer) ───────── */
+  .lookup-block {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 4px;
+  }
+  .lookup-block .lookup-btn,
+  .lookup-block .lookup-link {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 999px;
+    cursor: pointer;
+    text-decoration: none;
+    text-transform: none;
+    letter-spacing: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .lookup-block .lookup-btn:hover,
+  .lookup-block .lookup-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .lookup-block .lookup-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   /* ─── Star rating input (in expand panel) ──────────── */
   .stars-input {
     display: inline-flex;
@@ -2046,6 +2081,27 @@
     pendingDeleteTimers.set(id, timer);
   }
 
+  // ─── Book lookup (Google Books API) ────────────────────────
+  async function lookupBook(title, author) {
+    if (!title) return null;
+    const parts = [`intitle:"${title.replace(/"/g, '')}"`];
+    if (author) parts.push(`inauthor:"${author.replace(/"/g, '')}"`);
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(parts.join(' '))}&maxResults=1&printType=books`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Google Books returned ${resp.status}`);
+    const data = await resp.json();
+    if (!data.items || !data.items.length) return null;
+    const item = data.items[0];
+    const v = item.volumeInfo || {};
+    return {
+      title: v.title || '',
+      authors: v.authors || [],
+      pageCount: typeof v.pageCount === 'number' && v.pageCount > 0 ? v.pageCount : null,
+      infoLink: v.infoLink || `https://books.google.com/books?id=${item.id}`,
+      volumeId: item.id,
+    };
+  }
+
   // ─── Books render ──────────────────────────────────────────
   function getGenreOptions() {
     const used = books.map(b => b.genre).filter(Boolean);
@@ -2286,7 +2342,74 @@
     notesField.append(notesArea);
     panel.append(notesField);
 
+    panel.append(renderLookupBlock(b));
+
     return panel;
+  }
+
+  function renderLookupBlock(b) {
+    const wrap = document.createElement('div');
+    wrap.className = 'lookup-block';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lookup-btn';
+    btn.textContent = '🔍 Look up missing fields';
+    btn.title = 'Look up author & page count from Google Books';
+    btn.addEventListener('click', async () => {
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Looking up…';
+      try {
+        const r = await lookupBook(b.title, b.author);
+        if (!r) {
+          setStatus(`No Google Books match for "${b.title}".`);
+        } else {
+          const filled = [];
+          if (!b.author && r.authors.length) {
+            await updateBookField(b.id, 'author', r.authors.join(', '));
+            filled.push('author');
+          }
+          if (!b.pages && r.pageCount) {
+            await updateBookField(b.id, 'pages', r.pageCount);
+            filled.push('pages');
+          }
+          if (filled.length) {
+            setStatus(`Filled ${filled.join(' & ')} from "${r.title}".`);
+          } else {
+            setStatus(`Match: "${r.title}" — author & pages already set.`);
+          }
+        }
+      } catch (e) {
+        setStatus('Lookup failed: ' + extractError(e), true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    });
+    wrap.append(btn);
+
+    // Google Books search link — works for any title (no API call, just opens search)
+    const gbLink = document.createElement('a');
+    gbLink.className = 'lookup-link';
+    gbLink.target = '_blank';
+    gbLink.rel = 'noopener noreferrer';
+    const gbQuery = encodeURIComponent(`${b.title} ${b.author || ''}`.trim());
+    gbLink.href = `https://www.google.com/search?tbm=bks&q=${gbQuery}`;
+    gbLink.textContent = '📖 Book on Google';
+    wrap.append(gbLink);
+
+    if (b.author) {
+      const wikiLink = document.createElement('a');
+      wikiLink.className = 'lookup-link';
+      wikiLink.target = '_blank';
+      wikiLink.rel = 'noopener noreferrer';
+      wikiLink.href = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(b.author)}`;
+      wikiLink.textContent = '👤 Author on Wikipedia';
+      wrap.append(wikiLink);
+    }
+
+    return wrap;
   }
 
   function mkField(label, buildControl) {
