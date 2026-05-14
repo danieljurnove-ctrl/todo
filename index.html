@@ -71,6 +71,142 @@
   }
   .link-btn:hover { color: var(--text); border-color: transparent; }
   .auth { margin-bottom: 24px; }
+
+  /* ─── Tab nav (Tasks / Books) ───────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tabs .tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 16px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: -1px;
+    border-radius: 0;
+  }
+  .tabs .tab:hover { color: var(--text); }
+  .tabs .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ─── Books list ───────────────────────────────────── */
+  .book-row .title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 2px 4px;
+    cursor: text;
+    border-radius: 4px;
+  }
+  .book-row .title:hover { background: var(--hover); }
+  .book-row .title .book-title {
+    font-size: 15px;
+    word-break: break-word;
+  }
+  .book-row .title .book-author {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .book-row .stars-badge {
+    font-size: 12px;
+    color: #f59e0b;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* ─── Star rating input (in expand panel) ──────────── */
+  .stars-input {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .stars-input button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 18px;
+    line-height: 1;
+    color: #cbb89a;
+    border-radius: 3px;
+  }
+  .stars-input button:hover { background: var(--hover); }
+  .stars-input button.on { color: #f59e0b; }
+
+  /* ─── Stats view ───────────────────────────────────── */
+  .stats-summary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+    font-size: 14px;
+  }
+  .stats-summary .big { font-size: 22px; font-weight: 600; }
+  .stats-summary .meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .stats-block {
+    margin-bottom: 20px;
+  }
+  .stats-block h3 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 8px;
+    padding: 0 4px;
+  }
+  .stats-block .stats-bar {
+    display: grid;
+    grid-template-columns: 110px 1fr 36px;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 4px;
+    font-size: 13px;
+  }
+  .stats-block .stats-bar .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .stats-block .stats-bar .bar {
+    height: 14px;
+    background: var(--badge-bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stats-block .stats-bar .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+  }
+  .stats-block .stats-bar .count {
+    text-align: right;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 480px) {
+    .stats-block .stats-bar {
+      grid-template-columns: 88px 1fr 32px;
+      font-size: 12px;
+    }
+  }
   button {
     font: inherit;
     cursor: pointer;
@@ -653,35 +789,67 @@
     <h1>To-Do <span id="taskCount" class="count" hidden></span></h1>
     <button id="signout" class="link-btn" hidden>Sign out</button>
   </header>
+  <nav class="tabs" id="tabs" hidden>
+    <button class="tab active" type="button" data-view="tasks">Tasks</button>
+    <button class="tab" type="button" data-view="books">Books</button>
+  </nav>
   <div id="authBox" class="auth">
     <button id="signin" class="primary" disabled>Sign in with Google</button>
   </div>
-  <div id="compose" class="compose" hidden>
-    <div class="type-chips" id="typeChips">
-      <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
-      <button type="button" data-type="event"><span class="glyph-mark">📅</span> Event</button>
-      <button type="button" data-type="note"><span class="glyph-mark">📝</span> Note</button>
+
+  <div id="tasks-view">
+    <div id="compose" class="compose" hidden>
+      <div class="type-chips" id="typeChips">
+        <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
+        <button type="button" data-type="event"><span class="glyph-mark">📅</span> Event</button>
+        <button type="button" data-type="note"><span class="glyph-mark">📝</span> Note</button>
+      </div>
+      <form id="addForm">
+        <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
+        <button type="submit" class="primary">Add</button>
+      </form>
     </div>
-    <form id="addForm">
-      <input id="newTask" type="text" placeholder="Add a task..." autocomplete="off" required>
-      <button type="submit" class="primary">Add</button>
-    </form>
-  </div>
-  <div id="toolbar" hidden>
-    <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
-    <div class="view-controls">
-      <select id="groupBy" title="Group by">
-        <option value="date">Group: Date</option>
-        <option value="category">Group: Category</option>
-      </select>
-      <select id="categoryFilter" title="Filter by category">
-        <option value="">All categories</option>
-      </select>
-      <label class="toggle"><input type="checkbox" id="hideCompleted"> Show only open</label>
-      <button type="button" id="reviewBtn" class="review-btn">Review</button>
+    <div id="toolbar" hidden>
+      <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
+      <div class="view-controls">
+        <select id="groupBy" title="Group by">
+          <option value="date">Group: Date</option>
+          <option value="category">Group: Category</option>
+        </select>
+        <select id="categoryFilter" title="Filter by category">
+          <option value="">All categories</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="hideCompleted"> Show only open</label>
+        <button type="button" id="reviewBtn" class="review-btn">Review</button>
+      </div>
     </div>
+    <div id="list"></div>
   </div>
-  <div id="list"></div>
+
+  <div id="books-view" hidden>
+    <div id="booksCompose" class="compose" hidden>
+      <form id="addBookForm">
+        <input id="newBook" type="text" placeholder="Add a book..." autocomplete="off" required>
+        <button type="submit" class="primary">Add</button>
+      </form>
+    </div>
+    <div id="booksToolbar" hidden>
+      <input id="bookSearch" type="search" placeholder="Search books…" autocomplete="off">
+      <div class="view-controls">
+        <select id="bookSubView" title="View">
+          <option value="list">View: List</option>
+          <option value="stats">View: Stats</option>
+        </select>
+        <select id="statsScope" title="Stats scope" hidden>
+          <option value="year">This year</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+    </div>
+    <div id="booksList"></div>
+    <div id="booksStats" hidden></div>
+  </div>
+
   <p id="status">Loading Google libraries...</p>
 </main>
 <div id="toasts" aria-live="polite" aria-atomic="true"></div>
@@ -716,6 +884,15 @@
   const SEED_CATEGORIES = ['Work', 'Personal', 'Errands', 'Health', 'Home'];
   const FIELD_COL = { text: 'B', status: 'C', category: 'D', due: 'E', notes: 'F', starred: 'G', type: 'H' };
   const ADD_NEW = '__add_new__';
+
+  // ─── Books constants ───────────────────────────────────────
+  const BOOKS_SHEET = 'books';
+  const BOOK_HEADERS = ['id','title','author','started_on','finished_on','rating','pages','genre','source','notes'];
+  const BOOK_COL = {
+    title: 'B', author: 'C', started: 'D', finished: 'E',
+    rating: 'F', pages: 'G', genre: 'H', source: 'I', notes: 'J',
+  };
+  const SEED_SOURCES = ['Owned', 'Anthropic Library', 'Public Library'];
 
   const STATUSES = [
     { value: 'open',      label: 'Open' },
@@ -759,6 +936,16 @@
   let groupBy = 'date';        // 'date' | 'category'
   let categoryFilter = '';     // '' = all
   let composeType = 'task';    // 'task' | 'event' | 'note'
+
+  // ─── Books state ───────────────────────────────────────────
+  let books = [];
+  let booksSheetGid = null;
+  let booksTabReady = false;        // tracks whether ensureBooksTab() has run
+  let currentView = 'tasks';        // 'tasks' | 'books'
+  let bookSubView = 'list';         // 'list' | 'stats'
+  let statsScope = 'year';          // 'year' | 'all'
+  let bookSearchQuery = '';
+  let expandedBookId = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -873,14 +1060,23 @@
     gapi.client.setToken(null);
     clearStoredToken();
     todos = [];
+    books = [];
     expandedId = null;
     editingId = null;
+    expandedBookId = null;
+    booksTabReady = false;
+    booksSheetGid = null;
     render();
     $('authBox').hidden = false;
     $('signin').hidden = false;
     $('signout').hidden = true;
     $('compose').hidden = true;
     $('toolbar').hidden = true;
+    $('tabs').hidden = true;
+    $('tasks-view').hidden = false;
+    $('books-view').hidden = true;
+    $('booksCompose').hidden = true;
+    $('booksToolbar').hidden = true;
     setStatus('Signed out.');
   });
 
@@ -890,9 +1086,13 @@
     $('signout').hidden = false;
     $('compose').hidden = false;
     $('toolbar').hidden = false;
+    $('tabs').hidden = false;
     try {
       await resolveSheetGid();
       await loadTodos();
+      // Route based on URL hash (defaults to tasks).
+      const initialView = location.hash === '#books' ? 'books' : 'tasks';
+      switchView(initialView);
     } catch (e) {
       // If our stored token was rejected (revoked, expired despite our buffer,
       // scope mismatch), drop it and bounce back to the sign-in button.
@@ -904,6 +1104,7 @@
         $('signout').hidden = true;
         $('compose').hidden = true;
         $('toolbar').hidden = true;
+        $('tabs').hidden = true;
         setStatus('Session expired. Please sign in again.');
         return;
       }
@@ -1717,6 +1918,592 @@
     }
   }
 
+  // ─── Books data layer ──────────────────────────────────────
+  async function ensureBooksTab() {
+    if (booksTabReady) return;
+    const resp = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    const existing = resp.result.sheets.find(s => s.properties.title === BOOKS_SHEET);
+    if (existing) {
+      booksSheetGid = existing.properties.sheetId;
+      booksTabReady = true;
+      return;
+    }
+    const created = await gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      resource: { requests: [{ addSheet: { properties: { title: BOOKS_SHEET } } }] },
+    });
+    booksSheetGid = created.result.replies[0].addSheet.properties.sheetId;
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `${BOOKS_SHEET}!A1:J1`,
+      valueInputOption: 'RAW',
+      resource: { values: [BOOK_HEADERS] },
+    });
+    booksTabReady = true;
+  }
+
+  async function loadBooks() {
+    setStatus('Loading books...');
+    const resp = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${BOOKS_SHEET}!A2:J`,
+    });
+    const rows = resp.result.values || [];
+    books = rows.map((r, i) => ({
+      id: r[0] || '',
+      title: r[1] || '',
+      author: r[2] || '',
+      started: r[3] || '',
+      finished: r[4] || '',
+      rating: r[5] ? (parseInt(r[5], 10) || null) : null,
+      pages: r[6] ? (parseInt(r[6], 10) || null) : null,
+      genre: r[7] || '',
+      source: r[8] || '',
+      notes: r[9] || '',
+      row: i + 2,
+    }));
+    setStatus(`${books.length} book${books.length === 1 ? '' : 's'}`);
+    renderBooks();
+  }
+
+  async function addBook(title) {
+    const id = String(Date.now());
+    setStatus('Adding...');
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: `${BOOKS_SHEET}!A:J`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: [[id, title, '', '', '', '', '', '', '', '']] },
+    });
+    await loadBooks();
+  }
+
+  async function updateBookField(id, field, value) {
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    const col = BOOK_COL[field];
+    if (!col) return;
+    const prev = b[field];
+    if (prev === value) return;
+    b[field] = value;
+    renderBooks();
+    const cellValue = (value === null || value === undefined) ? '' : String(value);
+    try {
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${BOOKS_SHEET}!${col}${b.row}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[cellValue]] },
+      });
+    } catch (e) {
+      b[field] = prev;
+      renderBooks();
+      setStatus('Failed to update: ' + extractError(e), true);
+    }
+  }
+
+  function deleteBook(id) {
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+    if (expandedBookId === id) expandedBookId = null;
+    b._pendingDelete = true;
+    renderBooks();
+    const undoToast = showUndoToast(`Deleted "${b.title || 'book'}"`, () => {
+      delete b._pendingDelete;
+      const timer = pendingDeleteTimers.get(id);
+      if (timer) { clearTimeout(timer); pendingDeleteTimers.delete(id); }
+      renderBooks();
+    });
+    const timer = setTimeout(async () => {
+      pendingDeleteTimers.delete(id);
+      undoToast.dismiss();
+      const stillThere = books.find(x => x.id === id);
+      if (!stillThere || !stillThere._pendingDelete) return;
+      try {
+        await gapi.client.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SHEET_ID,
+          resource: {
+            requests: [{
+              deleteDimension: {
+                range: {
+                  sheetId: booksSheetGid,
+                  dimension: 'ROWS',
+                  startIndex: stillThere.row - 1,
+                  endIndex: stillThere.row,
+                },
+              },
+            }],
+          },
+        });
+        await loadBooks();
+      } catch (e) {
+        delete stillThere._pendingDelete;
+        renderBooks();
+        setStatus('Failed to delete: ' + extractError(e), true);
+      }
+    }, UNDO_MS);
+    pendingDeleteTimers.set(id, timer);
+  }
+
+  // ─── Books render ──────────────────────────────────────────
+  function getGenreOptions() {
+    const used = books.map(b => b.genre).filter(Boolean);
+    return Array.from(new Set(used)).sort((a, b) => a.localeCompare(b));
+  }
+  function getSourceOptions() {
+    const used = books.map(b => b.source).filter(Boolean);
+    return Array.from(new Set([...SEED_SOURCES, ...used])).sort((a, b) => a.localeCompare(b));
+  }
+  function visibleBooks() {
+    let v = books.filter(b => !b._pendingDelete);
+    const q = bookSearchQuery.trim().toLowerCase();
+    if (q) {
+      v = v.filter(b =>
+        (b.title || '').toLowerCase().includes(q) ||
+        (b.author || '').toLowerCase().includes(q) ||
+        (b.genre || '').toLowerCase().includes(q) ||
+        (b.notes || '').toLowerCase().includes(q)
+      );
+    }
+    return v;
+  }
+  function bookYear(b) {
+    if (!b.finished) return null;
+    const d = parseISODate(b.finished);
+    return d ? d.getFullYear() : null;
+  }
+  function bookStatus(b) {
+    if (b.finished) return 'read';
+    if (b.started)  return 'reading';
+    return 'unread';
+  }
+
+  function renderBooks() {
+    if (bookSubView === 'list') {
+      $('booksList').hidden = false;
+      $('booksStats').hidden = true;
+      $('statsScope').hidden = true;
+      renderBooksList();
+    } else {
+      $('booksList').hidden = true;
+      $('booksStats').hidden = false;
+      $('statsScope').hidden = false;
+      renderStats();
+    }
+  }
+
+  function renderBooksList() {
+    const root = $('booksList');
+    root.innerHTML = '';
+    const visible = visibleBooks();
+
+    const reading = visible.filter(b => bookStatus(b) === 'reading')
+      .sort((a, b) => (b.started || '').localeCompare(a.started || ''));
+    const readByYear = new Map();
+    const unread = [];
+    for (const b of visible) {
+      const s = bookStatus(b);
+      if (s === 'reading') continue;
+      if (s === 'unread') { unread.push(b); continue; }
+      const y = bookYear(b);
+      if (!readByYear.has(y)) readByYear.set(y, []);
+      readByYear.get(y).push(b);
+    }
+    for (const arr of readByYear.values()) {
+      arr.sort((a, b) => (b.finished || '').localeCompare(a.finished || ''));
+    }
+    const years = Array.from(readByYear.keys()).sort((a, b) => b - a);
+
+    if (reading.length) root.append(renderBookGroup('Currently Reading', reading));
+    for (const y of years) root.append(renderBookGroup(`Read in ${y}`, readByYear.get(y)));
+    if (unread.length) root.append(renderBookGroup('TBR / Unread', unread));
+
+    if (books.length === 0) {
+      root.append(renderEmptyState('No books yet.', 'Add one above to get started.'));
+    } else if (visible.length === 0 && bookSearchQuery.trim()) {
+      root.append(renderEmptyState(`No books match "${bookSearchQuery.trim()}".`, 'Try a different search.'));
+    }
+  }
+
+  function renderBookGroup(label, items) {
+    const section = document.createElement('section');
+    section.className = 'group';
+    const h = document.createElement('h2');
+    h.textContent = label;
+    section.append(h);
+    const ul = document.createElement('ul');
+    for (const b of items) ul.append(renderBookRow(b));
+    section.append(ul);
+    return section;
+  }
+
+  function renderBookRow(b) {
+    const li = document.createElement('li');
+    if (expandedBookId === b.id) li.classList.add('expanded');
+
+    const row = document.createElement('div');
+    row.className = 'task-row book-row';
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('button, input, .title, .stars-input')) return;
+      expandedBookId = expandedBookId === b.id ? null : b.id;
+      renderBooks();
+    });
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'title';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'book-title';
+    titleEl.textContent = b.title;
+    titleWrap.append(titleEl);
+    if (b.author) {
+      const au = document.createElement('span');
+      au.className = 'book-author';
+      au.textContent = b.author;
+      titleWrap.append(au);
+    }
+    row.append(titleWrap);
+
+    if (b.rating) {
+      const stars = document.createElement('span');
+      stars.className = 'stars-badge';
+      stars.textContent = '★'.repeat(b.rating) + '☆'.repeat(5 - b.rating);
+      row.append(stars);
+    }
+    if (b.source) {
+      const src = document.createElement('span');
+      src.className = 'badge';
+      src.textContent = b.source;
+      const s = categoryStyle(b.source);
+      if (s) {
+        src.style.backgroundColor = s.bg;
+        src.style.color = s.color;
+        src.style.borderColor = s.border;
+      }
+      row.append(src);
+    }
+    const dateStr = b.finished || b.started;
+    if (dateStr) {
+      const db = document.createElement('span');
+      db.className = 'badge date-badge';
+      db.title = b.finished ? `Finished ${b.finished}` : `Started ${b.started}`;
+      db.textContent = formatDateLabel(dateStr);
+      row.append(db);
+    }
+
+    const chev = document.createElement('button');
+    chev.type = 'button';
+    chev.className = 'icon-btn chevron';
+    chev.textContent = expandedBookId === b.id ? '▾' : '▸';
+    chev.addEventListener('click', () => {
+      expandedBookId = expandedBookId === b.id ? null : b.id;
+      renderBooks();
+    });
+    row.append(chev);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn delete';
+    del.title = 'Delete';
+    del.textContent = '×';
+    del.addEventListener('click', () => deleteBook(b.id));
+    row.append(del);
+
+    li.append(row);
+    if (expandedBookId === b.id) li.append(renderBookExpandPanel(b));
+    return li;
+  }
+
+  function renderBookExpandPanel(b) {
+    const panel = document.createElement('div');
+    panel.className = 'expand-panel';
+
+    const author = mkField('Author', () => {
+      const i = document.createElement('input');
+      i.type = 'text';
+      i.value = b.author;
+      i.addEventListener('blur', () => { if (i.value !== b.author) updateBookField(b.id, 'author', i.value); });
+      return i;
+    });
+    panel.append(author);
+
+    panel.append(renderBookDateField(b, 'started', 'Started'));
+    panel.append(renderBookDateField(b, 'finished', 'Finished'));
+
+    const ratingField = document.createElement('label');
+    ratingField.className = 'field';
+    ratingField.append(document.createTextNode('Rating'));
+    const starsRow = document.createElement('div');
+    starsRow.className = 'stars-input';
+    for (let i = 1; i <= 5; i++) {
+      const sb = document.createElement('button');
+      sb.type = 'button';
+      sb.textContent = (b.rating && b.rating >= i) ? '★' : '☆';
+      if (b.rating && b.rating >= i) sb.classList.add('on');
+      sb.addEventListener('click', () => {
+        const newRating = (b.rating === i) ? null : i;
+        updateBookField(b.id, 'rating', newRating);
+      });
+      starsRow.append(sb);
+    }
+    ratingField.append(starsRow);
+    panel.append(ratingField);
+
+    const pagesField = mkField('Pages', () => {
+      const i = document.createElement('input');
+      i.type = 'number';
+      i.min = '1';
+      i.value = b.pages == null ? '' : b.pages;
+      i.addEventListener('blur', () => {
+        const v = i.value ? (parseInt(i.value, 10) || null) : null;
+        if (v !== b.pages) updateBookField(b.id, 'pages', v);
+      });
+      return i;
+    });
+    panel.append(pagesField);
+
+    const genreField = document.createElement('label');
+    genreField.className = 'field';
+    genreField.append(document.createTextNode('Genre'));
+    genreField.append(renderBookDropdown(b, 'genre', getGenreOptions()));
+    panel.append(genreField);
+
+    const sourceField = document.createElement('label');
+    sourceField.className = 'field';
+    sourceField.append(document.createTextNode('Source'));
+    sourceField.append(renderBookDropdown(b, 'source', getSourceOptions()));
+    panel.append(sourceField);
+
+    const notesField = document.createElement('label');
+    notesField.className = 'field full';
+    notesField.append(document.createTextNode('Notes / review'));
+    const notesArea = document.createElement('textarea');
+    notesArea.value = b.notes;
+    notesArea.placeholder = 'Thoughts, quotes, review...';
+    notesArea.addEventListener('blur', () => {
+      if (notesArea.value !== b.notes) updateBookField(b.id, 'notes', notesArea.value);
+    });
+    notesField.append(notesArea);
+    panel.append(notesField);
+
+    return panel;
+  }
+
+  function mkField(label, buildControl) {
+    const f = document.createElement('label');
+    f.className = 'field';
+    f.append(document.createTextNode(label));
+    f.append(buildControl());
+    return f;
+  }
+
+  function renderBookDateField(b, field, label) {
+    const f = document.createElement('label');
+    f.className = 'field';
+    f.append(document.createTextNode(label));
+    const wrap = document.createElement('div');
+    wrap.className = 'date-wrap';
+    const input = document.createElement('input');
+    input.type = 'date';
+    input.value = b[field] || '';
+    input.addEventListener('change', () => updateBookField(b.id, field, input.value));
+    const todayBtn = document.createElement('button');
+    todayBtn.type = 'button';
+    todayBtn.className = 'icon-btn date-clear';
+    todayBtn.textContent = 'Today';
+    todayBtn.title = 'Set to today';
+    todayBtn.addEventListener('click', () => updateBookField(b.id, field, isoDate(startOfToday())));
+    wrap.append(input, todayBtn);
+    if (b[field]) {
+      const clrBtn = document.createElement('button');
+      clrBtn.type = 'button';
+      clrBtn.className = 'icon-btn date-clear';
+      clrBtn.textContent = 'Clear';
+      clrBtn.addEventListener('click', () => updateBookField(b.id, field, ''));
+      wrap.append(clrBtn);
+    }
+    f.append(wrap);
+    return f;
+  }
+
+  function renderBookDropdown(b, field, options) {
+    const sel = document.createElement('select');
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '(none)';
+    if (!b[field]) none.selected = true;
+    sel.append(none);
+    const allOptions = [...options];
+    if (b[field] && !allOptions.includes(b[field])) allOptions.push(b[field]);
+    for (const opt of allOptions) {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      if (b[field] === opt) o.selected = true;
+      sel.append(o);
+    }
+    const addNew = document.createElement('option');
+    addNew.value = ADD_NEW;
+    addNew.textContent = '+ Add new…';
+    sel.append(addNew);
+    sel.addEventListener('change', () => {
+      if (sel.value === ADD_NEW) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `New ${field}`;
+        sel.replaceWith(input);
+        input.focus();
+        let saved = false;
+        const finish = async (commit) => {
+          if (saved) return;
+          saved = true;
+          const v = input.value.trim();
+          if (commit && v) await updateBookField(b.id, field, v);
+          else renderBooks();
+        };
+        input.addEventListener('blur', () => finish(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+      } else {
+        updateBookField(b.id, field, sel.value);
+      }
+    });
+    return sel;
+  }
+
+  // ─── Stats render ──────────────────────────────────────────
+  function renderStats() {
+    const root = $('booksStats');
+    root.innerHTML = '';
+
+    const currentYear = new Date().getFullYear();
+    let scoped = books.filter(b => !b._pendingDelete);
+    if (statsScope === 'year') {
+      scoped = scoped.filter(b => bookYear(b) === currentYear);
+    }
+    const readBooks = scoped.filter(b => b.finished);
+    const reading = books.filter(b => !b._pendingDelete && bookStatus(b) === 'reading');
+
+    const totalPages = readBooks.reduce((s, b) => s + (b.pages || 0), 0);
+    const ratings = readBooks.map(b => b.rating).filter(r => r);
+    const avgRating = ratings.length ? (ratings.reduce((a, c) => a + c, 0) / ratings.length) : null;
+
+    const summary = document.createElement('div');
+    summary.className = 'stats-summary';
+    const big = document.createElement('div');
+    big.className = 'big';
+    big.textContent = `${readBooks.length} book${readBooks.length === 1 ? '' : 's'} ${statsScope === 'year' ? `read in ${currentYear}` : 'read total'}`;
+    summary.append(big);
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const parts = [];
+    if (totalPages) parts.push(`${totalPages.toLocaleString()} pages`);
+    if (avgRating) parts.push(`avg rating ${avgRating.toFixed(1)} ★`);
+    if (reading.length) parts.push(`${reading.length} currently reading`);
+    meta.textContent = parts.join(' · ') || ' ';
+    summary.append(meta);
+    root.append(summary);
+
+    if (readBooks.length === 0) {
+      root.append(renderEmptyState('No data yet.', `Finish a book to see ${statsScope === 'year' ? "this year's" : 'your'} stats.`));
+      return;
+    }
+
+    root.append(renderBarChart('By genre',  countBy(readBooks, b => b.genre  || '(no genre)')));
+    root.append(renderBarChart('By rating', ratingBuckets(readBooks)));
+    root.append(renderBarChart('By source', countBy(readBooks, b => b.source || '(no source)')));
+  }
+
+  function countBy(arr, keyFn) {
+    const m = new Map();
+    for (const x of arr) {
+      const k = keyFn(x);
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+  }
+
+  function ratingBuckets(arr) {
+    const buckets = [[5,0],[4,0],[3,0],[2,0],[1,0]];
+    for (const b of arr) {
+      if (b.rating && b.rating >= 1 && b.rating <= 5) buckets[5 - b.rating][1]++;
+    }
+    return buckets.filter(([, c]) => c > 0).map(([r, c]) => [`${r}★`, c]);
+  }
+
+  function renderBarChart(title, entries) {
+    const block = document.createElement('div');
+    block.className = 'stats-block';
+    const h = document.createElement('h3');
+    h.textContent = title;
+    block.append(h);
+    if (entries.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.color = 'var(--muted)';
+      empty.style.fontSize = '12px';
+      empty.style.padding = '4px';
+      empty.textContent = 'No data';
+      block.append(empty);
+      return block;
+    }
+    const max = Math.max(...entries.map(e => e[1]));
+    for (const [label, count] of entries) {
+      const r = document.createElement('div');
+      r.className = 'stats-bar';
+      const l = document.createElement('span');
+      l.className = 'label';
+      l.textContent = label;
+      l.title = label;
+      r.append(l);
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const fill = document.createElement('div');
+      fill.className = 'bar-fill';
+      fill.style.width = (count / max * 100) + '%';
+      bar.append(fill);
+      r.append(bar);
+      const c = document.createElement('span');
+      c.className = 'count';
+      c.textContent = count;
+      r.append(c);
+      block.append(r);
+    }
+    return block;
+  }
+
+  // ─── View switching ────────────────────────────────────────
+  function switchView(view) {
+    if (view !== 'tasks' && view !== 'books') view = 'tasks';
+    currentView = view;
+    for (const tab of $('tabs').querySelectorAll('.tab')) {
+      tab.classList.toggle('active', tab.dataset.view === view);
+    }
+    $('tasks-view').hidden = view !== 'tasks';
+    $('books-view').hidden = view !== 'books';
+    $('taskCount').hidden = view !== 'tasks' || todos.length === 0;
+    if (location.hash !== `#${view}`) {
+      history.replaceState(null, '', `#${view}`);
+    }
+    if (view === 'books' && !booksTabReady) {
+      initBooksOnce();
+    } else if (view === 'books') {
+      renderBooks();
+    }
+  }
+
+  async function initBooksOnce() {
+    try {
+      await ensureBooksTab();
+      $('booksCompose').hidden = false;
+      $('booksToolbar').hidden = false;
+      await loadBooks();
+    } catch (e) {
+      setStatus('Books init failed: ' + extractError(e), true);
+    }
+  }
+
   // ─── Wire up ───────────────────────────────────────────────
   $('addForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1767,6 +2554,51 @@
   $('categoryFilter').addEventListener('change', (e) => {
     categoryFilter = e.target.value;
     render();
+  });
+
+  // ─── Books wire-up ─────────────────────────────────────────
+  $('tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab[data-view]');
+    if (!tab) return;
+    switchView(tab.dataset.view);
+  });
+  window.addEventListener('hashchange', () => {
+    const v = location.hash === '#books' ? 'books' : 'tasks';
+    if (v !== currentView) switchView(v);
+  });
+
+  $('addBookForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = $('newBook');
+    const title = input.value.trim();
+    if (!title) return;
+    input.value = '';
+    try {
+      await addBook(title);
+    } catch (err) {
+      setStatus('Failed to add: ' + extractError(err), true);
+    }
+  });
+
+  $('bookSearch').addEventListener('input', (e) => {
+    bookSearchQuery = e.target.value;
+    renderBooks();
+  });
+  $('bookSearch').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && bookSearchQuery) {
+      e.target.value = '';
+      bookSearchQuery = '';
+      renderBooks();
+    }
+  });
+
+  $('bookSubView').addEventListener('change', (e) => {
+    bookSubView = e.target.value;
+    renderBooks();
+  });
+  $('statsScope').addEventListener('change', (e) => {
+    statsScope = e.target.value;
+    renderStats();
   });
 
   // ─── Review modal ──────────────────────────────────────────
@@ -1916,13 +2748,19 @@
     if (tgt && tgt.matches && tgt.matches('input, textarea, select, [contenteditable], [contenteditable=""], [contenteditable="true"]')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === '/') {
-      const search = $('search');
+      const search = currentView === 'books' ? $('bookSearch') : $('search');
       if (search && !search.closest('[hidden]')) { e.preventDefault(); search.focus(); }
     } else if (e.key === 'n' || e.key === 'N') {
-      const newTask = $('newTask');
-      if (newTask && !newTask.closest('[hidden]')) { e.preventDefault(); newTask.focus(); }
+      const input = currentView === 'books' ? $('newBook') : $('newTask');
+      if (input && !input.closest('[hidden]')) { e.preventDefault(); input.focus(); }
     } else if (e.key === 'Escape') {
-      if (expandedId !== null) { expandedId = null; render(); }
+      if (currentView === 'books' && expandedBookId !== null) {
+        expandedBookId = null;
+        renderBooks();
+      } else if (expandedId !== null) {
+        expandedId = null;
+        render();
+      }
     }
   });
 
