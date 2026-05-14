@@ -98,6 +98,75 @@
     font-weight: 600;
   }
 
+  /* ─── Now Reading panel (in Tasks view) ────────────── */
+  .now-reading {
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .now-reading h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .now-reading ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+  .now-reading li {
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .now-reading li:hover { background: var(--hover); }
+  .now-reading .nr-title { font-size: 14px; }
+  .now-reading .nr-author {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .now-reading .nr-meta {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ─── Pages-over-time line chart ──────────────────── */
+  .line-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--muted);
+  }
+  .line-chart .grid-line { stroke: var(--border); stroke-width: 1; }
+  .line-chart .data-line { stroke: var(--accent); stroke-width: 2; fill: none; }
+  .line-chart .data-dot  { fill: var(--accent); }
+  .line-chart text { fill: currentColor; font-size: 11px; }
+
+  /* ─── Inline book-title edit ───────────────────────── */
+  .book-row .book-title-edit {
+    flex: 1;
+    font: inherit;
+    font-size: 15px;
+    padding: 2px 6px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: var(--panel);
+    color: var(--text);
+    min-width: 0;
+  }
+
   /* ─── Books list ───────────────────────────────────── */
   .book-row .title {
     flex: 1;
@@ -833,6 +902,7 @@
   </div>
 
   <div id="tasks-view">
+    <div id="nowReading" class="now-reading" hidden></div>
     <div id="compose" class="compose" hidden>
       <div class="type-chips" id="typeChips">
         <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
@@ -981,6 +1051,7 @@
   let statsScope = 'year';          // 'year' | 'all'
   let bookSearchQuery = '';
   let expandedBookId = null;
+  let editingBookId = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -1099,8 +1170,11 @@
     expandedId = null;
     editingId = null;
     expandedBookId = null;
+    editingBookId = null;
     booksTabReady = false;
     booksSheetGid = null;
+    $('nowReading').hidden = true;
+    $('nowReading').innerHTML = '';
     render();
     $('authBox').hidden = false;
     $('signin').hidden = false;
@@ -1123,9 +1197,12 @@
     $('toolbar').hidden = false;
     $('tabs').hidden = false;
     try {
-      await resolveSheetGid();
+      await resolveSheetGid();          // also discovers books tab if present
       await loadTodos();
-      // Route based on URL hash (defaults to tasks).
+      await ensureBooksTab();           // creates books tab on first run
+      $('booksCompose').hidden = false;
+      $('booksToolbar').hidden = false;
+      await loadBooks();                // eager so Now Reading on Tasks has data
       const initialView = location.hash === '#books' ? 'books' : 'tasks';
       switchView(initialView);
     } catch (e) {
@@ -1151,9 +1228,15 @@
   async function resolveSheetGid() {
     if (sheetGid !== null) return;
     const resp = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    const sheet = resp.result.sheets.find(s => s.properties.title === SHEET_NAME);
-    if (!sheet) throw new Error(`Sheet tab "${SHEET_NAME}" not found.`);
-    sheetGid = sheet.properties.sheetId;
+    const tasksSheet = resp.result.sheets.find(s => s.properties.title === SHEET_NAME);
+    if (!tasksSheet) throw new Error(`Sheet tab "${SHEET_NAME}" not found.`);
+    sheetGid = tasksSheet.properties.sheetId;
+    // While we're here, also discover the books tab (saves an extra round-trip).
+    const booksSheet = resp.result.sheets.find(s => s.properties.title === BOOKS_SHEET);
+    if (booksSheet) {
+      booksSheetGid = booksSheet.properties.sheetId;
+      booksTabReady = true;
+    }
   }
 
   async function loadTodos() {
@@ -1956,13 +2039,8 @@
   // ─── Books data layer ──────────────────────────────────────
   async function ensureBooksTab() {
     if (booksTabReady) return;
-    const resp = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    const existing = resp.result.sheets.find(s => s.properties.title === BOOKS_SHEET);
-    if (existing) {
-      booksSheetGid = existing.properties.sheetId;
-      booksTabReady = true;
-      return;
-    }
+    // resolveSheetGid would already have set booksSheetGid if the tab existed,
+    // so reaching here means we need to create it.
     const created = await gapi.client.sheets.spreadsheets.batchUpdate({
       spreadsheetId: SHEET_ID,
       resource: { requests: [{ addSheet: { properties: { title: BOOKS_SHEET } } }] },
@@ -2150,6 +2228,9 @@
       $('statsScope').hidden = false;
       renderStats();
     }
+    // Now Reading panel lives on the Tasks view but reflects book state, so
+    // refresh it whenever book data changes (which is every renderBooks call).
+    renderNowReading();
   }
 
   function renderBooksList() {
@@ -2183,6 +2264,12 @@
     } else if (visible.length === 0 && bookSearchQuery.trim()) {
       root.append(renderEmptyState(`No books match "${bookSearchQuery.trim()}".`, 'Try a different search.'));
     }
+
+    // Restore focus to the book-title edit input if one is active.
+    if (editingBookId !== null) {
+      const inp = root.querySelector('.book-title-edit');
+      if (inp) { inp.focus(); inp.select(); }
+    }
   }
 
   function renderBookGroup(label, items) {
@@ -2211,10 +2298,41 @@
 
     const titleWrap = document.createElement('div');
     titleWrap.className = 'title';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'book-title';
-    titleEl.textContent = b.title;
-    titleWrap.append(titleEl);
+    if (editingBookId === b.id) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'book-title-edit';
+      input.value = b.title;
+      let saved = false, canceled = false;
+      const finish = async () => {
+        if (saved) return;
+        saved = true;
+        const v = input.value.trim();
+        editingBookId = null;
+        if (canceled || !v || v === b.title) {
+          renderBooks();
+        } else {
+          await updateBookField(b.id, 'title', v);
+        }
+      };
+      input.addEventListener('blur', finish);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter')      { e.preventDefault(); input.blur(); }
+        else if (e.key === 'Escape'){ e.preventDefault(); canceled = true; input.blur(); }
+      });
+      titleWrap.append(input);
+    } else {
+      const titleEl = document.createElement('span');
+      titleEl.className = 'book-title';
+      titleEl.textContent = b.title;
+      titleEl.title = 'Click to edit';
+      titleEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        editingBookId = b.id;
+        renderBooks();
+      });
+      titleWrap.append(titleEl);
+    }
     if (b.author) {
       const au = document.createElement('span');
       au.className = 'book-author';
@@ -2537,6 +2655,7 @@
       return;
     }
 
+    root.append(renderPagesOverTime(scoped));
     root.append(renderBarChart('By genre',  countBy(readBooks, b => b.genre  || '(no genre)')));
     root.append(renderBarChart('By rating', ratingBuckets(readBooks)));
     root.append(renderBarChart('By source', countBy(readBooks, b => b.source || '(no source)')));
@@ -2599,6 +2718,169 @@
     return block;
   }
 
+  // ─── Now Reading (panel at top of Tasks view) ──────────────
+  function renderNowReading() {
+    const root = $('nowReading');
+    if (!root) return;
+    const reading = books.filter(b => !b._pendingDelete && b.started && !b.finished);
+    if (reading.length === 0) {
+      root.hidden = true;
+      root.innerHTML = '';
+      return;
+    }
+    root.hidden = false;
+    root.innerHTML = '';
+    const h = document.createElement('h3');
+    h.textContent = '📚 Now Reading';
+    root.append(h);
+    const ul = document.createElement('ul');
+    const today = startOfToday();
+    for (const b of reading) {
+      const li = document.createElement('li');
+      li.title = 'View in Books';
+      li.addEventListener('click', () => {
+        expandedBookId = b.id;
+        switchView('books');
+      });
+      const t = document.createElement('span');
+      t.className = 'nr-title';
+      t.textContent = b.title;
+      li.append(t);
+      if (b.author) {
+        const au = document.createElement('span');
+        au.className = 'nr-author';
+        au.textContent = b.author;
+        li.append(au);
+      }
+      const startDate = parseISODate(b.started);
+      if (startDate) {
+        const days = Math.max(0, Math.round((today - startDate) / 86400000));
+        const meta = document.createElement('span');
+        meta.className = 'nr-meta';
+        meta.textContent = days === 0 ? 'started today' : `${days} day${days === 1 ? '' : 's'} in`;
+        li.append(meta);
+      }
+      ul.append(li);
+    }
+    root.append(ul);
+  }
+
+  // ─── Pages over time (SVG line chart) ──────────────────────
+  function buildPagesPerMonth(books) {
+    const months = new Map(); // 'YYYY-MM' -> pages (float)
+    for (const b of books) {
+      if (!b.pages || !b.started || !b.finished) continue;
+      const s = parseISODate(b.started);
+      const e = parseISODate(b.finished);
+      if (!s || !e || e < s) continue;
+      const days = Math.round((e - s) / 86400000) + 1;
+      const ppd = b.pages / days;
+      const d = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      while (d <= e) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months.set(key, (months.get(key) || 0) + ppd);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return months;
+  }
+
+  function renderPagesOverTime(books) {
+    const block = document.createElement('div');
+    block.className = 'stats-block';
+    const h = document.createElement('h3');
+    h.textContent = 'Pages per month (evenly distributed)';
+    block.append(h);
+    const monthsMap = buildPagesPerMonth(books);
+    if (monthsMap.size === 0) {
+      const empty = document.createElement('div');
+      empty.style.color = 'var(--muted)';
+      empty.style.fontSize = '12px';
+      empty.style.padding = '4px';
+      empty.textContent = 'Need books with both start & finish dates AND page counts.';
+      block.append(empty);
+      return block;
+    }
+    const keys = Array.from(monthsMap.keys()).sort();
+    const values = keys.map(k => Math.round(monthsMap.get(k)));
+
+    const W = 600, H = 160, padL = 44, padR = 12, padT = 12, padB = 24;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const maxV = Math.max(...values, 1);
+
+    const points = values.map((v, i) => {
+      const x = padL + (keys.length === 1 ? innerW / 2 : (i / (keys.length - 1)) * innerW);
+      const y = padT + innerH - (v / maxV) * innerH;
+      return [x, y];
+    });
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('class', 'line-chart');
+
+    // Horizontal baseline & top reference lines
+    const baseline = document.createElementNS(SVG_NS, 'line');
+    baseline.setAttribute('x1', padL); baseline.setAttribute('x2', padL + innerW);
+    baseline.setAttribute('y1', padT + innerH); baseline.setAttribute('y2', padT + innerH);
+    baseline.setAttribute('class', 'grid-line');
+    svg.append(baseline);
+    const topline = document.createElementNS(SVG_NS, 'line');
+    topline.setAttribute('x1', padL); topline.setAttribute('x2', padL + innerW);
+    topline.setAttribute('y1', padT); topline.setAttribute('y2', padT);
+    topline.setAttribute('class', 'grid-line');
+    topline.setAttribute('stroke-dasharray', '2,3');
+    svg.append(topline);
+
+    // Y labels (max, 0)
+    const maxLbl = document.createElementNS(SVG_NS, 'text');
+    maxLbl.setAttribute('x', padL - 6); maxLbl.setAttribute('y', padT + 4);
+    maxLbl.setAttribute('text-anchor', 'end');
+    maxLbl.textContent = String(maxV);
+    svg.append(maxLbl);
+    const zeroLbl = document.createElementNS(SVG_NS, 'text');
+    zeroLbl.setAttribute('x', padL - 6); zeroLbl.setAttribute('y', padT + innerH + 4);
+    zeroLbl.setAttribute('text-anchor', 'end');
+    zeroLbl.textContent = '0';
+    svg.append(zeroLbl);
+
+    // Polyline (or single point)
+    if (points.length > 1) {
+      const poly = document.createElementNS(SVG_NS, 'polyline');
+      poly.setAttribute('points', points.map(p => p.join(',')).join(' '));
+      poly.setAttribute('class', 'data-line');
+      svg.append(poly);
+    }
+    for (const [x, y] of points) {
+      const c = document.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', '3');
+      c.setAttribute('class', 'data-dot');
+      svg.append(c);
+    }
+
+    // X-axis labels (first and last)
+    const formatMonth = (key) => {
+      const [yr, mo] = key.split('-').map(Number);
+      const d = new Date(yr, mo - 1, 1);
+      return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    };
+    const firstLbl = document.createElementNS(SVG_NS, 'text');
+    firstLbl.setAttribute('x', padL); firstLbl.setAttribute('y', H - 6);
+    firstLbl.textContent = formatMonth(keys[0]);
+    svg.append(firstLbl);
+    if (keys.length > 1) {
+      const lastLbl = document.createElementNS(SVG_NS, 'text');
+      lastLbl.setAttribute('x', padL + innerW); lastLbl.setAttribute('y', H - 6);
+      lastLbl.setAttribute('text-anchor', 'end');
+      lastLbl.textContent = formatMonth(keys[keys.length - 1]);
+      svg.append(lastLbl);
+    }
+
+    block.append(svg);
+    return block;
+  }
+
   // ─── View switching ────────────────────────────────────────
   function switchView(view) {
     if (view !== 'tasks' && view !== 'books') view = 'tasks';
@@ -2612,21 +2894,10 @@
     if (location.hash !== `#${view}`) {
       history.replaceState(null, '', `#${view}`);
     }
-    if (view === 'books' && !booksTabReady) {
-      initBooksOnce();
-    } else if (view === 'books') {
+    if (view === 'books') {
       renderBooks();
-    }
-  }
-
-  async function initBooksOnce() {
-    try {
-      await ensureBooksTab();
-      $('booksCompose').hidden = false;
-      $('booksToolbar').hidden = false;
-      await loadBooks();
-    } catch (e) {
-      setStatus('Books init failed: ' + extractError(e), true);
+    } else {
+      renderNowReading();
     }
   }
 
