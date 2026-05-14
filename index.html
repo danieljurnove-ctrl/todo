@@ -2081,24 +2081,27 @@
     pendingDeleteTimers.set(id, timer);
   }
 
-  // ─── Book lookup (Google Books API) ────────────────────────
+  // ─── Book lookup (Open Library API) ────────────────────────
   async function lookupBook(title, author) {
     if (!title) return null;
-    const parts = [`intitle:"${title.replace(/"/g, '')}"`];
-    if (author) parts.push(`inauthor:"${author.replace(/"/g, '')}"`);
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(parts.join(' '))}&maxResults=1&printType=books`;
+    const params = new URLSearchParams();
+    params.set('title', title);
+    if (author) params.set('author', author);
+    params.set('limit', '1');
+    params.set('fields', 'key,title,author_name,number_of_pages_median,first_publish_year');
+    const url = `https://openlibrary.org/search.json?${params.toString()}`;
     const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Google Books returned ${resp.status}`);
+    if (!resp.ok) throw new Error(`Open Library returned ${resp.status}`);
     const data = await resp.json();
-    if (!data.items || !data.items.length) return null;
-    const item = data.items[0];
-    const v = item.volumeInfo || {};
+    if (!data.docs || !data.docs.length) return null;
+    const doc = data.docs[0];
     return {
-      title: v.title || '',
-      authors: v.authors || [],
-      pageCount: typeof v.pageCount === 'number' && v.pageCount > 0 ? v.pageCount : null,
-      infoLink: v.infoLink || `https://books.google.com/books?id=${item.id}`,
-      volumeId: item.id,
+      title: doc.title || '',
+      authors: doc.author_name || [],
+      pageCount: typeof doc.number_of_pages_median === 'number' && doc.number_of_pages_median > 0
+        ? doc.number_of_pages_median : null,
+      infoLink: doc.key ? `https://openlibrary.org${doc.key}` : null,
+      workKey: doc.key || null,
     };
   }
 

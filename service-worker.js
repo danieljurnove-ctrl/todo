@@ -28,8 +28,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Pass through Google auth / Sheets API: no caching, no interception.
-  if (url.host.includes('googleapis.com') || url.host.includes('accounts.google.com')) {
+  // Pass through cross-origin APIs: no caching, no interception.
+  if (url.host.includes('googleapis.com')
+      || url.host.includes('accounts.google.com')
+      || url.host.includes('openlibrary.org')) {
     return;
   }
 
