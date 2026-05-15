@@ -98,50 +98,6 @@
     font-weight: 600;
   }
 
-  /* ─── Now Reading panel (in Tasks view) ────────────── */
-  .now-reading {
-    margin-bottom: 18px;
-    padding: 12px 14px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-  }
-  .now-reading h3 {
-    margin: 0 0 8px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-  }
-  .now-reading ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-  }
-  .now-reading li {
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .now-reading li:hover { background: var(--hover); }
-  .now-reading .nr-title { font-size: 14px; }
-  .now-reading .nr-author {
-    font-size: 12px;
-    color: var(--muted);
-    font-style: italic;
-  }
-  .now-reading .nr-meta {
-    font-size: 11px;
-    color: var(--muted);
-  }
-
   /* ─── Pages-over-time line chart ──────────────────── */
   .line-chart {
     display: block;
@@ -905,7 +861,6 @@
   </div>
 
   <div id="tasks-view">
-    <div id="nowReading" class="now-reading" hidden></div>
     <div id="compose" class="compose" hidden>
       <div class="type-chips" id="typeChips">
         <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
@@ -1178,8 +1133,6 @@
     editingBookId = null;
     booksTabReady = false;
     booksSheetGid = null;
-    $('nowReading').hidden = true;
-    $('nowReading').innerHTML = '';
     render();
     $('authBox').hidden = false;
     $('signin').hidden = false;
@@ -2253,9 +2206,6 @@
       $('statsScope').hidden = false;
       renderStats();
     }
-    // Now Reading panel lives on the Tasks view but reflects book state, so
-    // refresh it whenever book data changes (which is every renderBooks call).
-    renderNowReading();
   }
 
   function renderBooksList() {
@@ -2751,54 +2701,6 @@
     return block;
   }
 
-  // ─── Now Reading (panel at top of Tasks view) ──────────────
-  function renderNowReading() {
-    const root = $('nowReading');
-    if (!root) return;
-    const reading = books.filter(b => !b._pendingDelete && b.started && !b.finished);
-    if (reading.length === 0) {
-      root.hidden = true;
-      root.innerHTML = '';
-      return;
-    }
-    root.hidden = false;
-    root.innerHTML = '';
-    const h = document.createElement('h3');
-    h.textContent = '📚 Now Reading';
-    root.append(h);
-    const ul = document.createElement('ul');
-    const today = startOfToday();
-    for (const b of reading) {
-      const li = document.createElement('li');
-      li.title = 'View in Books';
-      li.addEventListener('click', () => {
-        expandedBookId = b.id;
-        pendingScrollToBook = b.id;
-        switchView('books');
-      });
-      const t = document.createElement('span');
-      t.className = 'nr-title';
-      t.textContent = b.title;
-      li.append(t);
-      if (b.author) {
-        const au = document.createElement('span');
-        au.className = 'nr-author';
-        au.textContent = b.author;
-        li.append(au);
-      }
-      const startDate = parseISODate(b.started);
-      if (startDate) {
-        const days = Math.max(0, Math.round((today - startDate) / 86400000));
-        const meta = document.createElement('span');
-        meta.className = 'nr-meta';
-        meta.textContent = days === 0 ? 'started today' : `${days} day${days === 1 ? '' : 's'} in`;
-        li.append(meta);
-      }
-      ul.append(li);
-    }
-    root.append(ul);
-  }
-
   // ─── Pages over time (SVG line chart) ──────────────────────
   function buildPagesPerMonth(books) {
     const months = new Map(); // 'YYYY-MM' -> pages (float)
@@ -2930,8 +2832,6 @@
     }
     if (view === 'books') {
       renderBooks();
-    } else {
-      renderNowReading();
     }
   }
 
