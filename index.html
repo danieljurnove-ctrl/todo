@@ -590,7 +590,8 @@
     flex: 1;
     min-width: 0;
   }
-  .expand-panel .field .date-clear {
+  .expand-panel .field .date-clear,
+  .expand-panel .field .date-chip {
     font-size: 12px;
     padding: 4px 8px;
     border: 1px solid var(--border);
@@ -600,7 +601,8 @@
     text-transform: none;
     letter-spacing: 0;
   }
-  .expand-panel .field .date-clear:hover { color: var(--text); }
+  .expand-panel .field .date-clear:hover,
+  .expand-panel .field .date-chip:hover { color: var(--text); }
   .expand-panel .field .cat-wrap {
     display: flex;
     gap: 6px;
@@ -950,6 +952,7 @@
 
   // ─── Books constants ───────────────────────────────────────
   const BOOKS_SHEET = 'books';
+  const VIEW = { TASKS: 'tasks', BOOKS: 'books' };
   const BOOK_HEADERS = ['id','title','author','started_on','finished_on','rating','pages','genre','source','notes'];
   const BOOK_COL = {
     title: 'B', author: 'C', started: 'D', finished: 'E',
@@ -1006,7 +1009,7 @@
   let books = [];
   let booksSheetGid = null;
   let booksTabReady = false;        // tracks whether ensureBooksTab() has run
-  let currentView = 'tasks';        // 'tasks' | 'books'
+  let currentView = VIEW.TASKS;
   let bookSubView = 'list';         // 'list' | 'stats'
   let statsScope = 'year';          // 'year' | 'all'
   let bookSearchQuery = '';
@@ -1155,13 +1158,12 @@
     $('toolbar').hidden = false;
     $('tabs').hidden = false;
     try {
-      await resolveSheetGid();          // also discovers books tab if present
-      await loadTodos();
-      await ensureBooksTab();           // creates books tab on first run
+      await resolveSheetGid();
+      await ensureBooksTab();
       $('booksCompose').hidden = false;
       $('booksToolbar').hidden = false;
-      await loadBooks();                // eager so Now Reading on Tasks has data
-      const initialView = location.hash === '#books' ? 'books' : 'tasks';
+      await Promise.all([loadTodos(), loadBooks()]);
+      const initialView = location.hash === '#books' ? VIEW.BOOKS : VIEW.TASKS;
       switchView(initialView);
     } catch (e) {
       // If our stored token was rejected (revoked, expired despite our buffer,
@@ -1204,21 +1206,17 @@
       range: `${SHEET_NAME}!A2:H`,
     });
     const rows = resp.result.values || [];
-    todos = rows.map((r, i) => {
-      const status = normalizeStatus(r[2]);
-      return {
-        id: r[0] || '',
-        text: r[1] || '',
-        status,
-        done: status === 'done', // kept for legacy callers; status is canonical
-        category: r[3] || '',
-        due: migrateLegacyBucket(r[4] || ''),
-        notes: r[5] || '',
-        starred: String(r[6] || '').toUpperCase() === 'TRUE',
-        type: normalizeType(r[7]),
-        row: i + 2,
-      };
-    });
+    todos = rows.map((r, i) => ({
+      id: r[0] || '',
+      text: r[1] || '',
+      status: normalizeStatus(r[2]),
+      category: r[3] || '',
+      due: migrateLegacyBucket(r[4] || ''),
+      notes: r[5] || '',
+      starred: String(r[6] || '').toUpperCase() === 'TRUE',
+      type: normalizeType(r[7]),
+      row: i + 2,
+    }));
     render();
     setStatus(`${todos.length} task${todos.length === 1 ? '' : 's'}`);
   }
@@ -1234,7 +1232,6 @@
       resource: { values: [[id, text, 'open', '', '', '', 'FALSE', type]] },
     });
     await loadTodos();
-    // Jump straight into the new entry's detail panel.
     expandedId = id;
     pendingScrollToTask = id;
     render();
@@ -1247,7 +1244,6 @@
     const prevStatus = todo.status;
     const newStatus = todo.status === 'done' ? 'open' : 'done';
     todo.status = newStatus;
-    todo.done = newStatus === 'done';
     render();
     try {
       await gapi.client.sheets.spreadsheets.values.update({
@@ -1258,7 +1254,6 @@
       });
     } catch (e) {
       todo.status = prevStatus;
-      todo.done = prevStatus === 'done';
       render();
       setStatus('Failed to update: ' + extractError(e), true);
     }
@@ -1452,9 +1447,13 @@
   }
 
   // ─── Helpers ───────────────────────────────────────────────
+  function optionsFrom(items, key, seed = []) {
+    const used = items.map(x => x[key]).filter(Boolean);
+    return Array.from(new Set([...seed, ...used])).sort((a, b) => a.localeCompare(b));
+  }
+
   function getCategoryOptions() {
-    const used = todos.map(t => t.category).filter(Boolean);
-    return Array.from(new Set([...SEED_CATEGORIES, ...used])).sort((a, b) => a.localeCompare(b));
+    return optionsFrom(todos, 'category', SEED_CATEGORIES);
   }
 
   // Deterministic color per category name (stable across reloads & devices).
@@ -1519,9 +1518,8 @@
     const root = $('list');
     root.innerHTML = '';
 
-    // Update task count in header — only shown on the Tasks view.
     const countEl = $('taskCount');
-    if (currentView !== 'tasks' || todos.length === 0) {
+    if (currentView !== VIEW.TASKS || todos.length === 0) {
       countEl.hidden = true;
     } else {
       const open = todos.filter(t => t.type === 'task' && t.status === 'open').length;
@@ -2064,10 +2062,9 @@
       insertDataOption: 'INSERT_ROWS',
       resource: { values: [[id, title, '', '', '', '', '', '', '', '']] },
     });
-    await loadBooks();
     expandedBookId = id;
     pendingScrollToBook = id;
-    renderBooks();
+    await loadBooks();   // loadBooks itself renders, picking up the state above
   }
 
   async function updateBookField(id, field, value) {
@@ -2162,14 +2159,8 @@
   }
 
   // ─── Books render ──────────────────────────────────────────
-  function getGenreOptions() {
-    const used = books.map(b => b.genre).filter(Boolean);
-    return Array.from(new Set(used)).sort((a, b) => a.localeCompare(b));
-  }
-  function getSourceOptions() {
-    const used = books.map(b => b.source).filter(Boolean);
-    return Array.from(new Set([...SEED_SOURCES, ...used])).sort((a, b) => a.localeCompare(b));
-  }
+  function getGenreOptions()  { return optionsFrom(books, 'genre'); }
+  function getSourceOptions() { return optionsFrom(books, 'source', SEED_SOURCES); }
   function visibleBooks() {
     let v = books.filter(b => !b._pendingDelete);
     const q = bookSearchQuery.trim().toLowerCase();
@@ -2459,7 +2450,7 @@
     btn.type = 'button';
     btn.className = 'lookup-btn';
     btn.textContent = '🔍 Look up missing fields';
-    btn.title = 'Look up author & page count from Google Books';
+    btn.title = 'Look up author & page count from Open Library';
     btn.addEventListener('click', async () => {
       const orig = btn.textContent;
       btn.disabled = true;
@@ -2481,7 +2472,7 @@
           if (filled.length) {
             setStatus(`Filled ${filled.join(' & ')} from "${r.title}".`);
           } else {
-            setStatus(`Match: "${r.title}" — author & pages already set.`);
+            setStatus(`Match: "${r.title}" — nothing to fill.`);
           }
         }
       } catch (e) {
@@ -2493,7 +2484,6 @@
     });
     wrap.append(btn);
 
-    // Google Books search link — works for any title (no API call, just opens search)
     const gbLink = document.createElement('a');
     gbLink.className = 'lookup-link';
     gbLink.target = '_blank';
@@ -2536,7 +2526,7 @@
     input.addEventListener('change', () => updateBookField(b.id, field, input.value));
     const todayBtn = document.createElement('button');
     todayBtn.type = 'button';
-    todayBtn.className = 'icon-btn date-clear';
+    todayBtn.className = 'icon-btn date-chip';
     todayBtn.textContent = 'Today';
     todayBtn.title = 'Set to today';
     todayBtn.addEventListener('click', () => updateBookField(b.id, field, isoDate(startOfToday())));
@@ -2819,18 +2809,18 @@
 
   // ─── View switching ────────────────────────────────────────
   function switchView(view) {
-    if (view !== 'tasks' && view !== 'books') view = 'tasks';
+    if (view !== VIEW.TASKS && view !== VIEW.BOOKS) view = VIEW.TASKS;
     currentView = view;
     for (const tab of $('tabs').querySelectorAll('.tab')) {
       tab.classList.toggle('active', tab.dataset.view === view);
     }
-    $('tasks-view').hidden = view !== 'tasks';
-    $('books-view').hidden = view !== 'books';
-    $('taskCount').hidden = view !== 'tasks' || todos.length === 0;
+    $('tasks-view').hidden = view !== VIEW.TASKS;
+    $('books-view').hidden = view !== VIEW.BOOKS;
+    $('taskCount').hidden = view !== VIEW.TASKS || todos.length === 0;
     if (location.hash !== `#${view}`) {
       history.replaceState(null, '', `#${view}`);
     }
-    if (view === 'books') {
+    if (view === VIEW.BOOKS) {
       renderBooks();
     }
   }
@@ -2894,7 +2884,7 @@
     switchView(tab.dataset.view);
   });
   window.addEventListener('hashchange', () => {
-    const v = location.hash === '#books' ? 'books' : 'tasks';
+    const v = location.hash === '#books' ? VIEW.BOOKS : VIEW.TASKS;
     if (v !== currentView) switchView(v);
   });
 
@@ -3079,13 +3069,13 @@
     if (tgt && tgt.matches && tgt.matches('input, textarea, select, [contenteditable], [contenteditable=""], [contenteditable="true"]')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === '/') {
-      const search = currentView === 'books' ? $('bookSearch') : $('search');
+      const search = currentView === VIEW.BOOKS ? $('bookSearch') : $('search');
       if (search && !search.closest('[hidden]')) { e.preventDefault(); search.focus(); }
     } else if (e.key === 'n' || e.key === 'N') {
-      const input = currentView === 'books' ? $('newBook') : $('newTask');
+      const input = currentView === VIEW.BOOKS ? $('newBook') : $('newTask');
       if (input && !input.closest('[hidden]')) { e.preventDefault(); input.focus(); }
     } else if (e.key === 'Escape') {
-      if (currentView === 'books' && expandedBookId !== null) {
+      if (currentView === VIEW.BOOKS && expandedBookId !== null) {
         expandedBookId = null;
         renderBooks();
       } else if (expandedId !== null) {
