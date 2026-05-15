@@ -1519,9 +1519,9 @@
     const root = $('list');
     root.innerHTML = '';
 
-    // Update task count in header (open tasks / total entries).
+    // Update task count in header — only shown on the Tasks view.
     const countEl = $('taskCount');
-    if (todos.length === 0) {
+    if (currentView !== 'tasks' || todos.length === 0) {
       countEl.hidden = true;
     } else {
       const open = todos.filter(t => t.type === 'task' && t.status === 'open').length;
