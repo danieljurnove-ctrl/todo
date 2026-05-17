@@ -3,25 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!--
-  Content-Security-Policy: the app talks to Google Sheets API + Google Identity
-  Services + Open Library (no other third parties). 'unsafe-inline' is allowed
-  for script/style because the whole app is one inline <script> and <style> —
-  the value of this CSP is in tightening connect-src and frame-src so an XSS
-  cannot exfiltrate data to an arbitrary endpoint.
--->
-<meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.gstatic.com;
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' data:;
-  connect-src 'self' https://sheets.googleapis.com https://content.googleapis.com https://www.googleapis.com https://accounts.google.com https://openlibrary.org;
-  frame-src https://accounts.google.com https://content.googleapis.com;
-  manifest-src 'self';
-  worker-src 'self';
-  base-uri 'self';
-  form-action 'none';
-">
 <title>To-Do</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -2367,18 +2348,29 @@
     if (booksTabReady) return;
     // resolveSheetGid would already have set booksSheetGid if the tab existed,
     // so reaching here means we need to create it.
-    const created = await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
-      resource: { requests: [{ addSheet: { properties: { title: BOOKS_SHEET } } }] },
-    });
-    booksSheetGid = created.result.replies[0].addSheet.properties.sheetId;
-    await gapi.client.sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${BOOKS_SHEET}!A1:J1`,
-      valueInputOption: 'RAW',
-      resource: { values: [BOOK_HEADERS] },
-    });
-    booksTabReady = true;
+    try {
+      const created = await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        resource: { requests: [{ addSheet: { properties: { title: BOOKS_SHEET } } }] },
+      });
+      booksSheetGid = created.result.replies[0].addSheet.properties.sheetId;
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${BOOKS_SHEET}!A1:J1`,
+        valueInputOption: 'RAW',
+        resource: { values: [BOOK_HEADERS] },
+      });
+      booksTabReady = true;
+    } catch (e) {
+      // Resilience: if the tab actually exists but resolveSheetGid somehow
+      // missed it (stale state, network hiccup), recover instead of bailing.
+      if (!/already exists/i.test(extractError(e))) throw e;
+      const resp = await gapi.client.sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+      const booksSheet = resp.result.sheets.find(s => s.properties.title === BOOKS_SHEET);
+      if (!booksSheet) throw e;
+      booksSheetGid = booksSheet.properties.sheetId;
+      booksTabReady = true;
+    }
   }
 
   async function loadBooks() {
