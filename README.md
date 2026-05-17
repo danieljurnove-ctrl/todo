@@ -8,18 +8,37 @@ A personal to-do list backed by a Google Sheet. Single static HTML file, no back
 
 ## Features
 
-- Add, check off, rename in place, and delete tasks
+**Tasks**
+
+- Add, check off, rename in place, and delete tasks (with 6-second undo on delete)
+- Three entry types: task (toggleable), event (date-pinned), note
 - Categories with deterministic auto-colors and inline "Add new"
 - Real due dates with quick chips (Today / Tomorrow / +1 week / +1 month) and a native date picker
 - Auto-grouping by date — Overdue / Today / Tomorrow / This Week / Next Week / This Month / Next Month / This Year / Later / No Date — computed live from today's date so groups roll over without manual re-bucketing
 - Switchable grouping by category (toolbar toggle)
 - Star/priority — starred tasks sort first within each group
 - Inline expandable notes per task
-- Live search across text, category, and notes
+- Live search across text, category, and notes, with matches highlighted in `<mark>`
 - Filter by category
 - Hide-completed toggle
-- Mobile-optimized layout (badges wrap to a second line on phones)
-- Installable as a PWA with offline app-shell
+- Review modal for surfacing overdue / no-date open tasks
+
+**Books**
+
+- Separate tab backed by a `books` sheet (auto-created on first sign-in)
+- Title, author, started/finished dates, 1-5 star rating, page count, genre, source, notes
+- Inline editing of title and all expand-panel fields
+- Open Library lookup to autofill page count and other metadata
+- Stats sub-view with pages-over-time line chart, year-grouped read list
+
+**UX**
+
+- Sync controls in the header: Refresh button + "synced N min ago" label
+- Keyboard shortcuts (press `?` for the full list): `/` focus search, `n` add new, `j`/`k` navigate rows, `s`/`x` star/done, `e` expand, `Esc` close panel
+- Focus is preserved across re-renders so editing isn't disrupted
+- Save failures show a transient red ring on the failing row with the error in a tooltip, instead of stomping the global status line
+- Optimistic updates with rollback on failure; subtle green pulse on the row after a successful save
+- Installable as a PWA with offline app-shell (writes still need a live network)
 
 ---
 
@@ -108,11 +127,11 @@ GitHub Pages re-deploys in ~30-60s. Hard-refresh on your devices — the service
 ## Limitations
 
 - **Single user.** The Sheet ID is hardcoded. Supporting multiple users would mean per-user Sheet creation.
-- **Token expiry.** Access tokens last ~1 hour. After that, one click on Sign In refreshes for another hour.
+- **Token expiry.** Access tokens last ~1 hour. A background timer attempts silent refresh; if that fails (e.g., session revoked elsewhere) one click on Sign In gets another hour.
 - **No offline writes.** The app shell loads offline (service worker cache), but reading or writing tasks needs a live network.
 - **Date buckets don't auto-promote.** A task dated yesterday shows in Overdue — it isn't auto-rescheduled to today.
 - **No bulk operations** (rename a category across all tasks, bulk reschedule, etc.). Edit via the Sheet directly if you need bulk changes.
-- **No undo.** Deletes are immediate. The Sheet's own version history is your safety net.
+- **Multi-device.** Editing the Sheet in another tab or by hand while the app is open doesn't auto-sync — hit Refresh in the header to re-pull.
 
 ---
 
