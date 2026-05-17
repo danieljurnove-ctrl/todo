@@ -1536,80 +1536,63 @@
     render();
   }
 
-  async function toggleTodo(id) {
-    const todo = todos.find(t => t.id === id);
-    if (!todo) return;
-    if (todo.type !== 'task') return; // events and notes don't toggle
-    const prevStatus = todo.status;
-    const newStatus = todo.status === 'done' ? 'open' : 'done';
-    todo.status = newStatus;
-    render();
-    try {
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!C${todo.row}`,
-        valueInputOption: 'RAW',
-        resource: { values: [[newStatus]] },
-      });
-      flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
-    } catch (e) {
-      todo.status = prevStatus;
-      markItemError(todo, extractError(e), render);
-    }
-  }
-
-  async function updateField(id, field, value) {
-    const todo = todos.find(t => t.id === id);
-    if (!todo) return;
-    const col = FIELD_COL[field];
-    if (!col) return;
-    const prev = todo[field];
-    if (prev === value) return;
-    todo[field] = value;
-    render();
-    const cellValue = typeof value === 'boolean' ? (value ? 'TRUE' : 'FALSE') : value;
-    try {
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!${col}${todo.row}`,
-        valueInputOption: 'RAW',
-        resource: { values: [[cellValue]] },
-      });
-      flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
-    } catch (e) {
-      todo[field] = prev;
-      markItemError(todo, extractError(e), render);
-    }
-  }
-
-  // Map of pending delete timers, keyed by todo id, so undo can cancel them.
+  // ─── Generic Sheet-cell update + soft-delete (shared by tasks and books) ─────
+  // The two parallel paths (updateField / updateBookField, deleteTodo / deleteBook)
+  // were near-identical; they share these helpers now.
   const pendingDeleteTimers = new Map();
   const UNDO_MS = 6000;
 
-  function deleteTodo(id) {
-    const todo = todos.find(t => t.id === id);
-    if (!todo) return;
-    if (expandedId === id) expandedId = null;
-    if (editingId === id) editingId = null;
-    todo._pendingDelete = true;
-    render();
+  function cellValueFor(value) {
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (value === null || value === undefined) return '';
+    return String(value);
+  }
 
-    const undoToast = showUndoToast(`Deleted "${todo.text || 'task'}"`, () => {
-      // Undo: clear flag, cancel timer, re-render
-      delete todo._pendingDelete;
-      const timer = pendingDeleteTimers.get(id);
-      if (timer) {
-        clearTimeout(timer);
-        pendingDeleteTimers.delete(id);
-      }
-      render();
+  // Optimistic single-cell update with rollback + per-item error UI on failure.
+  async function updateCell({ items, id, field, value, sheet, colMap, render: rerender, idAttr }) {
+    const item = items.find(x => x.id === id);
+    if (!item) return;
+    const col = colMap[field];
+    if (!col) return;
+    const prev = item[field];
+    if (prev === value) return;
+    item[field] = value;
+    rerender();
+    try {
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${sheet}!${col}${item.row}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[cellValueFor(value)]] },
+      });
+      flashSaved(`li[${idAttr}="${CSS.escape(id)}"]`);
+    } catch (e) {
+      item[field] = prev;
+      markItemError(item, extractError(e), rerender);
+    }
+  }
+
+  // Soft-delete with undo: marks _pendingDelete, shows toast, actually removes
+  // the Sheet row after UNDO_MS unless Undo was clicked.
+  function softDeleteItem({ id, items, getSheetGid, render: rerender, reload, labelFor, clearState }) {
+    const item = items.find(x => x.id === id);
+    if (!item) return;
+    if (clearState) clearState(id);
+    item._pendingDelete = true;
+    rerender();
+
+    const undoToast = showUndoToast(`Deleted "${labelFor(item)}"`, () => {
+      const current = items.find(x => x.id === id);
+      if (current) delete current._pendingDelete;
+      const t = pendingDeleteTimers.get(id);
+      if (t) { clearTimeout(t); pendingDeleteTimers.delete(id); }
+      rerender();
     });
 
     const timer = setTimeout(async () => {
       pendingDeleteTimers.delete(id);
       undoToast.dismiss();
-      // Re-locate the todo (in case array shifted from other operations)
-      const stillThere = todos.find(t => t.id === id);
+      const stillThere = items.find(x => x.id === id);
       if (!stillThere || !stillThere._pendingDelete) return;
       try {
         await gapi.client.sheets.spreadsheets.batchUpdate({
@@ -1618,7 +1601,7 @@
             requests: [{
               deleteDimension: {
                 range: {
-                  sheetId: sheetGid,
+                  sheetId: getSheetGid(),
                   dimension: 'ROWS',
                   startIndex: stillThere.row - 1,
                   endIndex: stillThere.row,
@@ -1627,13 +1610,40 @@
             }],
           },
         });
-        await loadTodos();
+        await reload();
       } catch (e) {
         delete stillThere._pendingDelete;
-        markItemError(stillThere, 'Delete failed: ' + extractError(e), render);
+        markItemError(stillThere, 'Delete failed: ' + extractError(e), rerender);
       }
     }, UNDO_MS);
     pendingDeleteTimers.set(id, timer);
+  }
+
+  async function toggleTodo(id) {
+    const todo = todos.find(t => t.id === id);
+    if (!todo || todo.type !== 'task') return; // events and notes don't toggle
+    return updateField(id, 'status', todo.status === 'done' ? 'open' : 'done');
+  }
+
+  async function updateField(id, field, value) {
+    return updateCell({
+      items: todos, id, field, value,
+      sheet: SHEET_NAME, colMap: FIELD_COL,
+      render, idAttr: 'data-task-id',
+    });
+  }
+
+  function deleteTodo(id) {
+    softDeleteItem({
+      id, items: todos,
+      getSheetGid: () => sheetGid,
+      render, reload: loadTodos,
+      labelFor: t => t.text || 'task',
+      clearState: (id) => {
+        if (expandedId === id) expandedId = null;
+        if (editingId === id) editingId = null;
+      },
+    });
   }
 
   function showUndoToast(message, onUndo) {
@@ -2387,69 +2397,21 @@
   }
 
   async function updateBookField(id, field, value) {
-    const b = books.find(x => x.id === id);
-    if (!b) return;
-    const col = BOOK_COL[field];
-    if (!col) return;
-    const prev = b[field];
-    if (prev === value) return;
-    b[field] = value;
-    renderBooks();
-    const cellValue = (value === null || value === undefined) ? '' : String(value);
-    try {
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${BOOKS_SHEET}!${col}${b.row}`,
-        valueInputOption: 'RAW',
-        resource: { values: [[cellValue]] },
-      });
-      flashSaved(`li[data-book-id="${CSS.escape(id)}"]`);
-    } catch (e) {
-      b[field] = prev;
-      markItemError(b, extractError(e), renderBooks);
-    }
+    return updateCell({
+      items: books, id, field, value,
+      sheet: BOOKS_SHEET, colMap: BOOK_COL,
+      render: renderBooks, idAttr: 'data-book-id',
+    });
   }
 
   function deleteBook(id) {
-    const b = books.find(x => x.id === id);
-    if (!b) return;
-    if (expandedBookId === id) expandedBookId = null;
-    b._pendingDelete = true;
-    renderBooks();
-    const undoToast = showUndoToast(`Deleted "${b.title || 'book'}"`, () => {
-      delete b._pendingDelete;
-      const timer = pendingDeleteTimers.get(id);
-      if (timer) { clearTimeout(timer); pendingDeleteTimers.delete(id); }
-      renderBooks();
+    softDeleteItem({
+      id, items: books,
+      getSheetGid: () => booksSheetGid,
+      render: renderBooks, reload: loadBooks,
+      labelFor: b => b.title || 'book',
+      clearState: (id) => { if (expandedBookId === id) expandedBookId = null; },
     });
-    const timer = setTimeout(async () => {
-      pendingDeleteTimers.delete(id);
-      undoToast.dismiss();
-      const stillThere = books.find(x => x.id === id);
-      if (!stillThere || !stillThere._pendingDelete) return;
-      try {
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId: SHEET_ID,
-          resource: {
-            requests: [{
-              deleteDimension: {
-                range: {
-                  sheetId: booksSheetGid,
-                  dimension: 'ROWS',
-                  startIndex: stillThere.row - 1,
-                  endIndex: stillThere.row,
-                },
-              },
-            }],
-          },
-        });
-        await loadBooks();
-      } catch (e) {
-        delete stillThere._pendingDelete;
-        markItemError(stillThere, 'Delete failed: ' + extractError(e), renderBooks);
-      }
-    }, UNDO_MS);
-    pendingDeleteTimers.set(id, timer);
   }
 
   // ─── Book lookup (Open Library API) ────────────────────────
