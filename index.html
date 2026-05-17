@@ -943,42 +943,6 @@
     to   { opacity: 0; transform: translateY(8px); }
   }
 
-  /* Day-change banner (auto-promote overdue prompt). */
-  .banner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    margin-bottom: 16px;
-    background: rgba(80, 60, 30, 0.06);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    border-radius: 6px;
-    font-size: 13px;
-  }
-  .banner-text { flex: 1; }
-  .banner button {
-    font: inherit;
-    font-size: 13px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  .banner .banner-action {
-    background: var(--accent);
-    color: #fff;
-    border: 1px solid var(--accent);
-  }
-  .banner .banner-action:hover { filter: brightness(1.1); }
-  .banner .banner-dismiss {
-    background: transparent;
-    border: none;
-    color: var(--muted);
-    font-size: 20px;
-    line-height: 1;
-    padding: 0 6px;
-  }
-  .banner .banner-dismiss:hover { color: var(--text); }
 </style>
 </head>
 <body>
@@ -1001,11 +965,6 @@
   </div>
 
   <div id="tasks-view">
-    <div id="dayBanner" class="banner" hidden>
-      <span class="banner-text" id="dayBannerText"></span>
-      <button type="button" id="rollOverdueBtn" class="banner-action">Roll to today</button>
-      <button type="button" id="dismissBannerBtn" class="banner-dismiss" aria-label="Dismiss">×</button>
-    </div>
     <div id="compose" class="compose" hidden>
       <div class="type-chips" id="typeChips">
         <button type="button" data-type="task" class="active"><span class="glyph-mark">○</span> Task</button>
@@ -1081,7 +1040,6 @@
   const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
   const DISCOVERY = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
   const TOKEN_KEY = 'todoApp.token';
-  const LAST_SEEN_DATE_KEY = 'todoApp.lastSeenDate';
 
   // Display groups, computed dynamically from a task's ISO date relative to today.
   const GROUPS = [
@@ -1370,17 +1328,6 @@
 
   $('shortcuts').addEventListener('click', () => openShortcutsModal());
 
-  $('rollOverdueBtn').addEventListener('click', async () => {
-    const btn = $('rollOverdueBtn');
-    btn.disabled = true;
-    await autoPromoteOverdue();
-    $('dayBanner').hidden = true;
-    btn.disabled = false;
-  });
-  $('dismissBannerBtn').addEventListener('click', () => {
-    $('dayBanner').hidden = true;
-  });
-
   $('refresh').addEventListener('click', async () => {
     const btn = $('refresh');
     btn.disabled = true;
@@ -1416,7 +1363,6 @@
     $('signout').hidden = true;
     $('refresh').hidden = true;
     $('lastSynced').hidden = true;
-    $('dayBanner').hidden = true;
     if (lastSyncedTimer) { clearInterval(lastSyncedTimer); lastSyncedTimer = null; }
     lastSyncedAt = null;
     $('compose').hidden = true;
@@ -1444,7 +1390,6 @@
       $('booksToolbar').hidden = false;
       await Promise.all([loadTodos(), loadBooks()]);
       markSynced();
-      maybeShowDayChangeBanner();
       const initialView = location.hash === '#books' ? VIEW.BOOKS : VIEW.TASKS;
       switchView(initialView);
     } catch (e) {
@@ -1626,76 +1571,6 @@
       }
     }, UNDO_MS);
     pendingDeleteTimers.set(id, timer);
-  }
-
-  // Roll all open overdue tasks to today via a single batch update.
-  // Returns the number of rows changed and a function to undo.
-  async function autoPromoteOverdue() {
-    const todayISO = isoDate(startOfToday());
-    const overdue = todos.filter(t =>
-      t.type === 'task' && t.status === 'open' && groupForDate(t.due) === 'overdue'
-    );
-    if (!overdue.length) return 0;
-    const prev = overdue.map(t => ({ id: t.id, due: t.due, row: t.row }));
-    const data = overdue.map(t => ({
-      range: `${SHEET_NAME}!E${t.row}`,
-      values: [[todayISO]],
-    }));
-    for (const t of overdue) t.due = todayISO;
-    render();
-    try {
-      await gapi.client.sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: SHEET_ID,
-        resource: { valueInputOption: 'RAW', data },
-      });
-    } catch (e) {
-      for (const p of prev) {
-        const t = todos.find(x => x.id === p.id);
-        if (t) t.due = p.due;
-      }
-      render();
-      setStatus('Failed to roll overdue: ' + extractError(e), true);
-      return 0;
-    }
-    showUndoToast(
-      `Rolled ${overdue.length} task${overdue.length === 1 ? '' : 's'} to today`,
-      async () => {
-        // Restore by writing the previous date back into each row.
-        const restoreData = prev.map(p => ({
-          range: `${SHEET_NAME}!E${p.row}`,
-          values: [[p.due]],
-        }));
-        for (const p of prev) {
-          const t = todos.find(x => x.id === p.id);
-          if (t) t.due = p.due;
-        }
-        render();
-        try {
-          await gapi.client.sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: SHEET_ID,
-            resource: { valueInputOption: 'RAW', data: restoreData },
-          });
-        } catch (e) {
-          setStatus('Failed to undo: ' + extractError(e), true);
-        }
-      }
-    );
-    return overdue.length;
-  }
-
-  function maybeShowDayChangeBanner() {
-    const today = isoDate(startOfToday());
-    const last = localStorage.getItem(LAST_SEEN_DATE_KEY);
-    localStorage.setItem(LAST_SEEN_DATE_KEY, today);
-    // First sign-in ever: don't prompt — only future day-rollovers should.
-    if (!last || last === today) return;
-    const overdueCount = todos.filter(t =>
-      t.type === 'task' && t.status === 'open' && groupForDate(t.due) === 'overdue'
-    ).length;
-    if (!overdueCount) return;
-    $('dayBannerText').textContent =
-      `${overdueCount} overdue task${overdueCount === 1 ? '' : 's'} carried over.`;
-    $('dayBanner').hidden = false;
   }
 
   function showUndoToast(message, onUndo) {
