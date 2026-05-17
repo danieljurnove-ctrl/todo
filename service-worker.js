@@ -2,7 +2,7 @@
 // We DO NOT cache Google API requests — those need a live network anyway,
 // and caching them would be a security/freshness mess.
 
-const CACHE = 'todo-shell-v12';
+const CACHE = 'todo-shell-v13';
 const SHELL = [
   './',
   './index.html',

@@ -71,15 +71,25 @@
   }
   .link-btn:hover { color: var(--text); border-color: transparent; }
   .link-btn:disabled { opacity: 0.5; cursor: wait; }
+  .page-header { flex-wrap: wrap; row-gap: 4px; }
   .header-controls {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
   .last-synced {
     font-size: 12px;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 480px) {
+    h1 { font-size: 22px; }
+    .last-synced { display: none; }
+    .header-controls { gap: 4px; }
+    .header-controls .link-btn { font-size: 12px; padding: 4px 6px; }
+    #shortcuts { font-size: 14px; padding: 2px 8px; }
   }
   .auth { margin-bottom: 24px; }
 
