@@ -70,6 +70,17 @@
     border-radius: 4px;
   }
   .link-btn:hover { color: var(--text); border-color: transparent; }
+  .link-btn:disabled { opacity: 0.5; cursor: wait; }
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .last-synced {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
   .auth { margin-bottom: 24px; }
 
   /* ─── Tab nav (Tasks / Books) ───────────────────────── */
@@ -911,7 +922,11 @@
 <main>
   <header class="page-header">
     <h1>To-Do <span id="taskCount" class="count" hidden></span></h1>
-    <button id="signout" class="link-btn" hidden>Sign out</button>
+    <div class="header-controls">
+      <span id="lastSynced" class="last-synced" hidden></span>
+      <button id="refresh" class="link-btn" hidden title="Reload from your Google Sheet">Refresh</button>
+      <button id="signout" class="link-btn" hidden>Sign out</button>
+    </div>
   </header>
   <nav class="tabs" id="tabs" hidden>
     <button class="tab active" type="button" data-view="tasks">Tasks</button>
@@ -1081,6 +1096,10 @@
   let expandedBookId = null;
   let editingBookId = null;
 
+  // ─── Sync state ────────────────────────────────────────────
+  let lastSyncedAt = null;          // ms timestamp of most recent full reload
+  let lastSyncedTimer = null;       // interval id for the relative-time label
+
   const $ = (id) => document.getElementById(id);
 
   function setStatus(msg, isError = false) {
@@ -1090,6 +1109,30 @@
     // Spinner shows for in-flight messages ("Loading...", "Saving...", "Adding...").
     const busy = !isError && /\.\.\.$/.test(msg);
     el.classList.toggle('busy', busy);
+  }
+
+  function formatRelative(ms) {
+    const secs = Math.max(0, Math.round(ms / 1000));
+    if (secs < 10)  return 'just now';
+    if (secs < 60)  return `${secs}s ago`;
+    const mins = Math.round(secs / 60);
+    if (mins < 60)  return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24)   return `${hrs} hr ago`;
+    return `${Math.round(hrs / 24)} d ago`;
+  }
+  function updateLastSyncedLabel() {
+    const el = $('lastSynced');
+    if (!el || lastSyncedAt == null) return;
+    el.textContent = `synced ${formatRelative(Date.now() - lastSyncedAt)}`;
+  }
+  function markSynced() {
+    lastSyncedAt = Date.now();
+    const el = $('lastSynced');
+    if (el) { el.hidden = false; updateLastSyncedLabel(); }
+    if (!lastSyncedTimer) {
+      lastSyncedTimer = setInterval(updateLastSyncedLabel, 30_000);
+    }
   }
 
   // Briefly highlight a row after a successful save, so the user sees confirmation.
@@ -1237,6 +1280,19 @@
     tokenClient.requestAccessToken({ prompt: '' });
   });
 
+  $('refresh').addEventListener('click', async () => {
+    const btn = $('refresh');
+    btn.disabled = true;
+    try {
+      await Promise.all([loadTodos(), loadBooks()]);
+      markSynced();
+    } catch (e) {
+      setStatus('Failed to refresh: ' + extractError(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   $('signout').addEventListener('click', () => {
     if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
     const token = gapi.client.getToken();
@@ -1257,6 +1313,10 @@
     $('authBox').hidden = false;
     $('signin').hidden = false;
     $('signout').hidden = true;
+    $('refresh').hidden = true;
+    $('lastSynced').hidden = true;
+    if (lastSyncedTimer) { clearInterval(lastSyncedTimer); lastSyncedTimer = null; }
+    lastSyncedAt = null;
     $('compose').hidden = true;
     $('toolbar').hidden = true;
     $('tabs').hidden = true;
@@ -1271,6 +1331,7 @@
     $('authBox').hidden = true;
     $('signin').hidden = true;
     $('signout').hidden = false;
+    $('refresh').hidden = false;
     $('compose').hidden = false;
     $('toolbar').hidden = false;
     $('tabs').hidden = false;
@@ -1280,6 +1341,7 @@
       $('booksCompose').hidden = false;
       $('booksToolbar').hidden = false;
       await Promise.all([loadTodos(), loadBooks()]);
+      markSynced();
       const initialView = location.hash === '#books' ? VIEW.BOOKS : VIEW.TASKS;
       switchView(initialView);
     } catch (e) {
@@ -1293,6 +1355,10 @@
         $('authBox').hidden = false;
         $('signin').hidden = false;
         $('signout').hidden = true;
+        $('refresh').hidden = true;
+        $('lastSynced').hidden = true;
+        if (lastSyncedTimer) { clearInterval(lastSyncedTimer); lastSyncedTimer = null; }
+        lastSyncedAt = null;
         $('compose').hidden = true;
         $('toolbar').hidden = true;
         $('tabs').hidden = true;
