@@ -345,19 +345,53 @@
     font-size: 13px;
     color: var(--muted);
   }
-  #toolbar #search {
+  .search-wrap {
+    position: relative;
     flex: 1 1 200px;
     min-width: 0;
-    padding: 7px 10px;
+    display: flex;
+  }
+  .search-wrap input[type="search"] {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 32px 7px 10px;
     font-size: 13px;
     border: 1px solid var(--border);
     background: var(--panel);
     color: var(--text);
     border-radius: 6px;
+    font-family: inherit;
   }
-  #toolbar #search:focus {
+  .search-wrap input[type="search"]:focus {
     outline: none;
     border-color: var(--accent);
+  }
+  /* Hide the browser-native clear button — we render our own for consistency. */
+  .search-wrap input[type="search"]::-webkit-search-cancel-button,
+  .search-wrap input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+  .search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .search-clear:hover { background: var(--hover); color: var(--text); }
+  @media (max-width: 480px) {
+    .search-clear { width: 36px; height: 36px; font-size: 22px; }
+    .search-wrap input[type="search"] { padding-right: 40px; }
   }
   #toolbar .view-controls {
     display: flex;
@@ -651,15 +685,19 @@
       order: 5;
     }
     .task-row > input[type="checkbox"] { order: 1; }
-    .task-row > .glyph                 { order: 1; }
-    .task-row > .star                  { order: 2; }
+    /* WCAG 2.5.5 minimum tap target is 24×24 (Level AA) / 44×44 (Level AAA).
+       Bumping interactive controls to ~36px on small screens. */
+    .task-row > .glyph                 { order: 1; width: 36px; height: 36px; font-size: 20px; }
+    .task-row > .star                  { order: 2; padding: 8px 10px; font-size: 18px; }
     .task-row > .text,
     .task-row > .text-edit             { order: 3; flex: 1 1 0; min-width: 0; }
     .task-row > .title                 { order: 3; flex: 1 1 0; min-width: 0; }
-    .task-row > .badge                 { order: 6; max-width: none; font-size: 11px; padding: 2px 8px; }
+    .task-row > .badge                 { order: 6; max-width: none; font-size: 12px; padding: 4px 10px; }
     .task-row > .stars-badge           { order: 6; }
-    .task-row > .chevron               { order: 6; font-size: 14px; padding: 6px 10px; }
-    .task-row > .delete                { order: 7; margin-left: auto; padding: 6px 10px; }
+    .task-row > .chevron               { order: 6; font-size: 16px; padding: 8px 12px; }
+    .task-row > .delete                { order: 7; margin-left: auto; font-size: 18px; padding: 8px 12px; }
+    /* Star rating inside the book expand panel: bigger buttons on mobile. */
+    .stars-input button { padding: 8px 6px; font-size: 22px; min-width: 36px; }
   }
 
   #status {
@@ -667,8 +705,29 @@
     font-size: 13px;
     color: var(--muted);
     min-height: 1.5em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
   #status.error { color: var(--danger); }
+  #status.busy::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Brief flash applied to a list item after a successful save. */
+  @keyframes saved-pulse {
+    0%   { background-color: rgba(76, 134, 67, 0.18); }
+    100% { background-color: transparent; }
+  }
+  li.saved-pulse > .task-row { animation: saved-pulse 600ms ease-out; }
 
   .empty-state {
     text-align: center;
@@ -875,7 +934,10 @@
       </form>
     </div>
     <div id="toolbar" hidden>
-      <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
+      <div class="search-wrap">
+        <input id="search" type="search" placeholder="Search tasks…" autocomplete="off">
+        <button type="button" id="searchClear" class="search-clear" aria-label="Clear search" hidden>×</button>
+      </div>
       <div class="view-controls">
         <select id="groupBy" title="Group by">
           <option value="date">Group: Date</option>
@@ -884,7 +946,7 @@
         <select id="categoryFilter" title="Filter by category">
           <option value="">All categories</option>
         </select>
-        <label class="toggle"><input type="checkbox" id="hideCompleted"> Show only open</label>
+        <label class="toggle"><input type="checkbox" id="hideCompleted" checked> Show only open</label>
         <button type="button" id="reviewBtn" class="review-btn">Review</button>
       </div>
     </div>
@@ -899,7 +961,10 @@
       </form>
     </div>
     <div id="booksToolbar" hidden>
-      <input id="bookSearch" type="search" placeholder="Search books…" autocomplete="off">
+      <div class="search-wrap">
+        <input id="bookSearch" type="search" placeholder="Search books…" autocomplete="off">
+        <button type="button" id="bookSearchClear" class="search-clear" aria-label="Clear search" hidden>×</button>
+      </div>
       <div class="view-controls">
         <select id="bookSubView" title="View">
           <option value="list">View: List</option>
@@ -997,7 +1062,7 @@
   let todos = [];
   let expandedId = null;
   let editingId = null;
-  let hideCompleted = false;
+  let hideCompleted = true;
   let searchQuery = '';
   let groupBy = 'date';        // 'date' | 'category'
   let categoryFilter = '';     // '' = all
@@ -1022,6 +1087,20 @@
     const el = $('status');
     el.textContent = msg;
     el.classList.toggle('error', isError);
+    // Spinner shows for in-flight messages ("Loading...", "Saving...", "Adding...").
+    const busy = !isError && /\.\.\.$/.test(msg);
+    el.classList.toggle('busy', busy);
+  }
+
+  // Briefly highlight a row after a successful save, so the user sees confirmation.
+  function flashSaved(selector) {
+    const li = document.querySelector(selector);
+    if (!li) return;
+    li.classList.remove('saved-pulse'); // restart animation if already running
+    // Force reflow so the class re-add triggers the animation.
+    void li.offsetWidth;
+    li.classList.add('saved-pulse');
+    setTimeout(() => li.classList.remove('saved-pulse'), 700);
   }
 
   function extractError(e) {
@@ -1061,6 +1140,41 @@
     try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
   }
 
+  // Silent refresh: Google access tokens cap at 1 hour. We re-request a few
+  // seconds before expiry with prompt:'' so it's UI-less as long as the user's
+  // Google session is alive.
+  let refreshTimer = null;
+  function scheduleSilentRefresh() {
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+    const stored = loadStoredToken();
+    if (!stored) return;
+    const delay = Math.max(0, stored.expires_at - Date.now() - 60_000);
+    refreshTimer = setTimeout(silentRefresh, delay);
+  }
+  function silentRefresh() {
+    return new Promise((resolve) => {
+      if (!tokenClient || !gapiReady) { resolve(false); return; }
+      tokenClient.callback = (resp) => {
+        if (resp && resp.access_token) {
+          saveToken(resp);
+          gapi.client.setToken({ access_token: resp.access_token });
+          scheduleSilentRefresh();
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      };
+      try { tokenClient.requestAccessToken({ prompt: '' }); }
+      catch (_) { resolve(false); }
+    });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const stored = loadStoredToken();
+    if (!stored) return;
+    if (stored.expires_at - Date.now() < 5 * 60_000) silentRefresh();
+  });
+
   // ─── Boot ──────────────────────────────────────────────────
   function gapiLoaded() {
     gapi.load('client', async () => {
@@ -1096,6 +1210,7 @@
     const stored = loadStoredToken();
     if (stored) {
       gapi.client.setToken({ access_token: stored.access_token });
+      scheduleSilentRefresh();
       await onSignedIn();
       return;
     }
@@ -1114,6 +1229,7 @@
         return;
       }
       saveToken(resp);
+      scheduleSilentRefresh();
       await onSignedIn();
     };
     // Empty prompt: Google shows consent only if not yet granted; otherwise
@@ -1122,6 +1238,7 @@
   });
 
   $('signout').addEventListener('click', () => {
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
     const token = gapi.client.getToken();
     if (token && token.access_token) {
       google.accounts.oauth2.revoke(token.access_token, () => {});
@@ -1150,7 +1267,7 @@
     setStatus('Signed out.');
   });
 
-  async function onSignedIn() {
+  async function onSignedIn(isRetry = false) {
     $('authBox').hidden = true;
     $('signin').hidden = true;
     $('signout').hidden = false;
@@ -1166,9 +1283,11 @@
       const initialView = location.hash === '#books' ? VIEW.BOOKS : VIEW.TASKS;
       switchView(initialView);
     } catch (e) {
-      // If our stored token was rejected (revoked, expired despite our buffer,
-      // scope mismatch), drop it and bounce back to the sign-in button.
       if (e && (e.status === 401 || e.status === 403)) {
+        // Stale token. One silent refresh attempt before bouncing.
+        if (!isRetry && await silentRefresh()) {
+          return onSignedIn(true);
+        }
         clearStoredToken();
         gapi.client.setToken(null);
         $('authBox').hidden = false;
@@ -1252,6 +1371,7 @@
         valueInputOption: 'RAW',
         resource: { values: [[newStatus]] },
       });
+      flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
     } catch (e) {
       todo.status = prevStatus;
       render();
@@ -1276,6 +1396,7 @@
         valueInputOption: 'RAW',
         resource: { values: [[cellValue]] },
       });
+      flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
     } catch (e) {
       todo[field] = prev;
       render();
@@ -1351,6 +1472,7 @@
     const undoBtn = document.createElement('button');
     undoBtn.type = 'button';
     undoBtn.textContent = 'Undo';
+    undoBtn.setAttribute('aria-label', `Undo: ${message}`);
     undoBtn.addEventListener('click', () => {
       onUndo();
       dismiss();
@@ -1358,6 +1480,8 @@
     toast.append(undoBtn);
 
     root.append(toast);
+    // Move focus to Undo so keyboard users can reach it without tabbing the list.
+    undoBtn.focus({ preventScroll: true });
 
     let dismissed = false;
     function dismiss() {
@@ -1646,19 +1770,26 @@
     glyphBtn.textContent = glyphForEntry(t);
     if (t.type === 'task') {
       glyphBtn.classList.add('task-' + t.status);
-      glyphBtn.title = t.status === 'done' ? 'Mark open' : 'Mark done';
+      const glyphLabel = t.status === 'done' ? 'Mark open' : 'Mark done';
+      glyphBtn.title = glyphLabel;
+      glyphBtn.setAttribute('aria-label', glyphLabel);
       glyphBtn.addEventListener('click', () => toggleTodo(t.id));
     } else {
       glyphBtn.classList.add(t.type); // 'event' or 'note'
       glyphBtn.disabled = true;
-      glyphBtn.title = t.type === 'event' ? 'Event' : 'Note';
+      const typeLabel = t.type === 'event' ? 'Event' : 'Note';
+      glyphBtn.title = typeLabel;
+      glyphBtn.setAttribute('aria-label', typeLabel);
     }
     row.append(glyphBtn);
 
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star' + (t.starred ? ' on' : '');
-    star.title = t.starred ? 'Unstar' : 'Star';
+    const starLabel = t.starred ? 'Unstar' : 'Star';
+    star.title = starLabel;
+    star.setAttribute('aria-label', starLabel);
+    star.setAttribute('aria-pressed', t.starred ? 'true' : 'false');
     star.textContent = t.starred ? '★' : '☆';
     star.addEventListener('click', () => updateField(t.id, 'starred', !t.starred));
     row.append(star);
@@ -1700,7 +1831,10 @@
     const chev = document.createElement('button');
     chev.type = 'button';
     chev.className = 'icon-btn chevron';
-    chev.title = expandedId === t.id ? 'Collapse' : 'Expand';
+    const chevLabel = expandedId === t.id ? 'Collapse details' : 'Expand details';
+    chev.title = chevLabel;
+    chev.setAttribute('aria-label', chevLabel);
+    chev.setAttribute('aria-expanded', expandedId === t.id ? 'true' : 'false');
     chev.textContent = expandedId === t.id ? '▾' : '▸';
     chev.addEventListener('click', () => {
       expandedId = expandedId === t.id ? null : t.id;
@@ -1712,6 +1846,7 @@
     del.type = 'button';
     del.className = 'icon-btn delete';
     del.title = 'Delete';
+    del.setAttribute('aria-label', `Delete ${t.type || 'task'}`);
     del.textContent = '×';
     del.addEventListener('click', () => deleteTodo(t.id));
     row.append(del);
@@ -2084,6 +2219,7 @@
         valueInputOption: 'RAW',
         resource: { values: [[cellValue]] },
       });
+      flashSaved(`li[data-book-id="${CSS.escape(id)}"]`);
     } catch (e) {
       b[field] = prev;
       renderBooks();
@@ -2345,6 +2481,10 @@
     const chev = document.createElement('button');
     chev.type = 'button';
     chev.className = 'icon-btn chevron';
+    const chevLabel = expandedBookId === b.id ? 'Collapse details' : 'Expand details';
+    chev.title = chevLabel;
+    chev.setAttribute('aria-label', chevLabel);
+    chev.setAttribute('aria-expanded', expandedBookId === b.id ? 'true' : 'false');
     chev.textContent = expandedBookId === b.id ? '▾' : '▸';
     chev.addEventListener('click', () => {
       expandedBookId = expandedBookId === b.id ? null : b.id;
@@ -2356,6 +2496,7 @@
     del.type = 'button';
     del.className = 'icon-btn delete';
     del.title = 'Delete';
+    del.setAttribute('aria-label', 'Delete book');
     del.textContent = '×';
     del.addEventListener('click', () => deleteBook(b.id));
     row.append(del);
@@ -2391,6 +2532,8 @@
       sb.type = 'button';
       sb.textContent = (b.rating && b.rating >= i) ? '★' : '☆';
       if (b.rating && b.rating >= i) sb.classList.add('on');
+      sb.setAttribute('aria-label', `Rate ${i} star${i === 1 ? '' : 's'}`);
+      sb.setAttribute('aria-pressed', (b.rating === i) ? 'true' : 'false');
       sb.addEventListener('click', () => {
         const newRating = (b.rating === i) ? null : i;
         updateBookField(b.id, 'rating', newRating);
@@ -2858,14 +3001,24 @@
 
   $('search').addEventListener('input', (e) => {
     searchQuery = e.target.value;
+    $('searchClear').hidden = !searchQuery;
     render();
   });
   $('search').addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && searchQuery) {
       e.target.value = '';
       searchQuery = '';
+      $('searchClear').hidden = true;
       render();
     }
+  });
+  $('searchClear').addEventListener('click', () => {
+    const input = $('search');
+    input.value = '';
+    searchQuery = '';
+    $('searchClear').hidden = true;
+    input.focus();
+    render();
   });
 
   $('groupBy').addEventListener('change', (e) => {
@@ -2903,14 +3056,24 @@
 
   $('bookSearch').addEventListener('input', (e) => {
     bookSearchQuery = e.target.value;
+    $('bookSearchClear').hidden = !bookSearchQuery;
     renderBooks();
   });
   $('bookSearch').addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && bookSearchQuery) {
       e.target.value = '';
       bookSearchQuery = '';
+      $('bookSearchClear').hidden = true;
       renderBooks();
     }
+  });
+  $('bookSearchClear').addEventListener('click', () => {
+    const input = $('bookSearch');
+    input.value = '';
+    bookSearchQuery = '';
+    $('bookSearchClear').hidden = true;
+    input.focus();
+    renderBooks();
   });
 
   $('bookSubView').addEventListener('change', (e) => {
