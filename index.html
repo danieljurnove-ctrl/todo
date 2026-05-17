@@ -562,6 +562,16 @@
     background: var(--hover);
     border-radius: 6px;
   }
+  /* Per-item save failure: subtle red ring that auto-clears after a few seconds. */
+  li.has-error > .task-row {
+    box-shadow: inset 0 0 0 2px var(--danger);
+    border-radius: 6px;
+    animation: error-pulse 600ms ease-out;
+  }
+  @keyframes error-pulse {
+    0%   { background-color: rgba(153, 59, 44, 0.18); }
+    100% { background-color: transparent; }
+  }
   mark { background: rgba(245, 158, 11, 0.35); color: inherit; border-radius: 2px; padding: 0 1px; }
   .task-row .icon-btn {
     background: transparent;
@@ -1096,6 +1106,18 @@
     if (s === 'event' || s === 'note') return s;
     return 'task';
   }
+  function clampRating(raw) {
+    if (!raw) return null;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(n, 5);
+  }
+  function clampPages(raw) {
+    if (!raw) return null;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(n, 100_000);
+  }
 
   // ─── State ─────────────────────────────────────────────────
   let tokenClient = null;
@@ -1163,6 +1185,37 @@
     }
   }
 
+  // Snapshot the element currently focused inside a task/book row, so render()
+  // can restore focus to the equivalent element on the rebuilt DOM.
+  const FOCUS_KEYS = ['glyph', 'star', 'chevron', 'delete', 'text', 'text-edit', 'book-title'];
+  function captureFocus() {
+    const a = document.activeElement;
+    if (!a || a === document.body) return null;
+    const li = a.closest('li[data-task-id], li[data-book-id]');
+    if (!li) return null;
+    const kind = li.dataset.taskId ? 'task' : 'book';
+    const id = li.dataset.taskId || li.dataset.bookId;
+    const key = FOCUS_KEYS.find(c => a.classList && a.classList.contains(c));
+    if (!key) return null;
+    return {
+      id, kind, key,
+      start: a.selectionStart ?? null,
+      end:   a.selectionEnd ?? null,
+    };
+  }
+  function restoreFocus(snap) {
+    if (!snap) return;
+    const attr = snap.kind === 'task' ? 'data-task-id' : 'data-book-id';
+    const li = document.querySelector(`li[${attr}="${CSS.escape(snap.id)}"]`);
+    if (!li) return;
+    const el = li.querySelector('.' + snap.key);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (snap.start != null && typeof el.setSelectionRange === 'function') {
+      try { el.setSelectionRange(snap.start, snap.end); } catch {}
+    }
+  }
+
   // Append `text` to `el`, wrapping case-insensitive matches of `query` in <mark>.
   // Safe: every chunk is a text node, no HTML injection.
   function highlightTextInto(el, text, query) {
@@ -1179,6 +1232,19 @@
       el.append(mark);
       i = idx + q.length;
     }
+  }
+
+  // Mark an item with an error message that surfaces in its row instead of the
+  // shared status line. Auto-clears after a few seconds.
+  function markItemError(item, msg, rerender) {
+    item._error = msg;
+    rerender();
+    setTimeout(() => {
+      if (item._error === msg) {
+        delete item._error;
+        rerender();
+      }
+    }, 4000);
   }
 
   // Briefly highlight a row after a successful save, so the user sees confirmation.
@@ -1488,8 +1554,7 @@
       flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
     } catch (e) {
       todo.status = prevStatus;
-      render();
-      setStatus('Failed to update: ' + extractError(e), true);
+      markItemError(todo, extractError(e), render);
     }
   }
 
@@ -1513,8 +1578,7 @@
       flashSaved(`li[data-task-id="${CSS.escape(id)}"]`);
     } catch (e) {
       todo[field] = prev;
-      render();
-      setStatus('Failed to update: ' + extractError(e), true);
+      markItemError(todo, extractError(e), render);
     }
   }
 
@@ -1566,8 +1630,7 @@
         await loadTodos();
       } catch (e) {
         delete stillThere._pendingDelete;
-        render();
-        setStatus('Failed to delete: ' + extractError(e), true);
+        markItemError(stillThere, 'Delete failed: ' + extractError(e), render);
       }
     }, UNDO_MS);
     pendingDeleteTimers.set(id, timer);
@@ -1753,6 +1816,7 @@
 
   // ─── Render ────────────────────────────────────────────────
   function render() {
+    const focusSnap = captureFocus();
     const root = $('list');
     root.innerHTML = '';
 
@@ -1828,6 +1892,11 @@
       if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' });
       pendingScrollToTask = null;
     }
+
+    // Restore focus to the same logical element (star, chevron, etc.) on the
+    // rebuilt DOM. Runs after the inline-edit focus block so it can refocus
+    // a .text-edit input mid-edit too.
+    if (editingId === null) restoreFocus(focusSnap);
   }
 
   function renderEmptyState(main, hint) {
@@ -1860,6 +1929,7 @@
   function renderTask(t) {
     const li = document.createElement('li');
     li.dataset.taskId = t.id;
+    if (t._error) { li.classList.add('has-error'); li.title = `Save failed: ${t._error}`; }
     if (t.type === 'task' && t.status === 'done')      li.classList.add('done');
     if (t.type === 'task' && t.status === 'cancelled') li.classList.add('cancelled');
     if (t.type === 'event' && t.due) {
@@ -2290,8 +2360,8 @@
       author: r[2] || '',
       started: r[3] || '',
       finished: r[4] || '',
-      rating: r[5] ? (parseInt(r[5], 10) || null) : null,
-      pages: r[6] ? (parseInt(r[6], 10) || null) : null,
+      rating: clampRating(r[5]),
+      pages: clampPages(r[6]),
       genre: r[7] || '',
       source: r[8] || '',
       notes: r[9] || '',
@@ -2336,8 +2406,7 @@
       flashSaved(`li[data-book-id="${CSS.escape(id)}"]`);
     } catch (e) {
       b[field] = prev;
-      renderBooks();
-      setStatus('Failed to update: ' + extractError(e), true);
+      markItemError(b, extractError(e), renderBooks);
     }
   }
 
@@ -2377,8 +2446,7 @@
         await loadBooks();
       } catch (e) {
         delete stillThere._pendingDelete;
-        renderBooks();
-        setStatus('Failed to delete: ' + extractError(e), true);
+        markItemError(stillThere, 'Delete failed: ' + extractError(e), renderBooks);
       }
     }, UNDO_MS);
     pendingDeleteTimers.set(id, timer);
@@ -2450,6 +2518,7 @@
   }
 
   function renderBooksList() {
+    const focusSnap = captureFocus();
     const root = $('booksList');
     root.innerHTML = '';
     const visible = visibleBooks();
@@ -2493,6 +2562,8 @@
       if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' });
       pendingScrollToBook = null;
     }
+
+    if (editingBookId === null) restoreFocus(focusSnap);
   }
 
   function renderBookGroup(label, items) {
@@ -2510,6 +2581,7 @@
   function renderBookRow(b) {
     const li = document.createElement('li');
     li.dataset.bookId = b.id;
+    if (b._error) { li.classList.add('has-error'); li.title = `Save failed: ${b._error}`; }
     if (expandedBookId === b.id) li.classList.add('expanded');
 
     const row = document.createElement('div');
