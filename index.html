@@ -3,6 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Content-Security-Policy: the app talks to Google Sheets API + Google Identity
+  Services + Open Library (no other third parties). 'unsafe-inline' is allowed
+  for script/style because the whole app is one inline <script> and <style> —
+  the value of this CSP is in tightening connect-src and frame-src so an XSS
+  cannot exfiltrate data to an arbitrary endpoint.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.gstatic.com;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  connect-src 'self' https://sheets.googleapis.com https://content.googleapis.com https://www.googleapis.com https://accounts.google.com https://openlibrary.org;
+  frame-src https://accounts.google.com https://content.googleapis.com;
+  manifest-src 'self';
+  worker-src 'self';
+  base-uri 'self';
+  form-action 'none';
+">
 <title>To-Do</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -1118,6 +1137,11 @@
     if (!Number.isFinite(n) || n < 1) return null;
     return Math.min(n, 100_000);
   }
+  // ms timestamp + 6 random base-36 chars: stable, sortable-ish, collision-safe
+  // even across two adds in the same millisecond.
+  function newId() {
+    return Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  }
 
   // ─── State ─────────────────────────────────────────────────
   let tokenClient = null;
@@ -1521,7 +1545,7 @@
   }
 
   async function addTodo(text, type = 'task') {
-    const id = String(Date.now());
+    const id = newId();
     setStatus('Adding...');
     await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
@@ -2382,7 +2406,7 @@
   }
 
   async function addBook(title) {
-    const id = String(Date.now());
+    const id = newId();
     setStatus('Adding...');
     await gapi.client.sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
